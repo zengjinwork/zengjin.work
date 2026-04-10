@@ -9,6 +9,9 @@ window.$config = {
 	map_zoom: 12, //地图初始缩放值
 	map_tdt_code: 156371300, //天地图code: 临沂市
 	map_tdt_key: ['2856341e69e88c285542cf43c4e665e0'],
-	map_xt_key: '50bf51905d245086c7d8f2cd99a916930c9cfe8343af6bed85b38af3e8a3213f',
-	map_jlyh_key: 'ecb2be019119654d86558229982917e4',
+	map_gd_key: ['54fb2a298784b913a7f45fb7a0bf4ce8'],
+	map_bd_key: ['Tm6LXbJFNHyjAmApztznD7NkkY0qtsnO'],
+	map_tx_key: ['4R5BZ-6ZIWW-Y5GRE-OVMJM-6UQ32-F7BJI'],
+	map_xt_key: ['50bf51905d245086c7d8f2cd99a916930c9cfe8343af6bed85b38af3e8a3213f'],
+	map_jlyh_key: ['ecb2be019119654d86558229982917e4'],
 }
