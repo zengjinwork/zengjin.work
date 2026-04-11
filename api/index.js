@@ -1,5 +1,6 @@
 import demoHandler from './_demo.js'
 import noteHandler from './_note.js'
+import fcHandler from './_fc.js'
 import classHandler from './_zone/mzl/class.js'
 import studentHandler from './_zone/mzl/student.js'
 import userHandler from './_base/user.js'
@@ -53,6 +54,9 @@ export default async function masterHandler(req, res) {
 
 			case 'doc':
 				return await docHandler(req, res)
+
+			case 'fc':
+				return await fcHandler(req, res)
 
 			case 'zone':
 				const zoneName = fullAction[1] // 'mzl'
