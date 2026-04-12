@@ -1,4 +1,9 @@
 import pkg from 'pg'
+import dns from 'dns'
+
+// 强制 Node.js (v17+) 在 DNS 解析时优先使用 IPv4，避免因本地不支持 IPv6 导致连接云数据库时产生 3 秒以上的超时回退延迟
+dns.setDefaultResultOrder('ipv4first')
+
 const { Pool } = pkg
 
 // 检查必要的环境变量是否存在
@@ -26,5 +31,10 @@ const dbConfig = {
 const isProd = process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production'
 console.log('当前环境:', isProd ? '生产环境' : '开发环境')
 
-const db = new Pool(dbConfig)
+// 全局单例缓存，防止无服务器开发环境下不断重复新建对象和 TLS 握手（类似你朋友给出的方案二思路，但作用于原生 pg 模块）
+if (!global.dbPool) {
+	global.dbPool = new Pool(dbConfig)
+}
+
+const db = global.dbPool
 export default db

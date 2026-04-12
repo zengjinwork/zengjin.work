@@ -25,7 +25,7 @@ actions.get.select = async ({ query }) => {
 
 	// 分类筛选
 	if (query.categoryId) {
-		wheres.push(`id IN (SELECT "gameId" FROM game_category_link WHERE "categoryId" = $${idx})`)
+		wheres.push(`id IN (SELECT "fcId" FROM fc_category_link WHERE "categoryId" = $${idx})`)
 		binds.push(query.categoryId)
 		idx++
 	}
@@ -33,7 +33,7 @@ actions.get.select = async ({ query }) => {
 	// 关键词搜索（名称 / 别称 / 厂家）
 	if (query.keyword) {
 		const kw = `%${query.keyword}%`
-		wheres.push(`(name ILIKE $${idx} OR maker ILIKE $${idx + 1} OR id IN (SELECT "gameId" FROM game_alias WHERE alias ILIKE $${idx + 2}))`)
+		wheres.push(`(name ILIKE $${idx} OR maker ILIKE $${idx + 1} OR id IN (SELECT "fcId" FROM fc_alias WHERE alias ILIKE $${idx + 2}))`)
 		binds.push(kw, kw, kw)
 		idx += 3
 	}
@@ -42,13 +42,13 @@ actions.get.select = async ({ query }) => {
 
 	try {
 		// 总数
-		const countRes = await db.query(`SELECT COUNT(*) FROM game ${whereStr}`, binds)
+		const countRes = await db.query(`SELECT COUNT(*) FROM fc ${whereStr}`, binds)
 		const total = parseInt(countRes.rows[0].count)
 
 		// 列表
 		const listRes = await db.query(
 			`SELECT id, name, cover, maker, "playerCount", "playCount", sort, "insertTime"
-			 FROM game ${whereStr}
+			 FROM fc ${whereStr}
 			 ORDER BY sort DESC, ${orderBy}
 			 LIMIT $${idx} OFFSET $${idx + 1}`,
 			[...binds, pageSize, offset]
@@ -59,19 +59,19 @@ actions.get.select = async ({ query }) => {
 		let categoryMap = {}
 		if (ids.length) {
 			const catRes = await db.query(
-				`SELECT cl."gameId", c.id, c.name
-				 FROM game_category_link cl
-				 JOIN game_category c ON cl."categoryId" = c.id
-				 WHERE cl."gameId" = ANY($1)`,
+				`SELECT cl."fcId", c.id, c.name
+				 FROM fc_category_link cl
+				 JOIN fc_category c ON cl."categoryId" = c.id
+				 WHERE cl."fcId" = ANY($1)`,
 				[ids]
 			)
 			catRes.rows.forEach(r => {
-				if (!categoryMap[r.gameId]) categoryMap[r.gameId] = []
-				categoryMap[r.gameId].push({ id: r.id, name: r.name })
+				if (!categoryMap[r.fcId]) categoryMap[r.fcId] = []
+				categoryMap[r.fcId].push({ id: r.id, name: r.name })
 			})
 		}
 
-		const data = listRes.rows.map(r => ({
+		const data = base.formatDbRows(listRes.rows).map(r => ({
 			...r,
 			categories: categoryMap[r.id] || [],
 		}))
@@ -88,34 +88,34 @@ actions.get.detail = async ({ query }) => {
 
 	try {
 		// 主表
-		const gameRes = await db.query('SELECT * FROM game WHERE id = $1', [query.id])
+		const gameRes = await db.query('SELECT * FROM fc WHERE id = $1', [query.id])
 		if (!gameRes.rowCount) return base.respFailure({ msg: '游戏不存在' })
 		const game = base.formatDbRows(gameRes.rows)[0]
 
 		// 别称
-		const aliasRes = await db.query('SELECT id, alias FROM game_alias WHERE "gameId" = $1', [query.id])
+		const aliasRes = await db.query('SELECT id, alias FROM fc_alias WHERE "fcId" = $1', [query.id])
 		game.aliases = aliasRes.rows.map(r => r.alias)
 
 		// 分类
 		const catRes = await db.query(
-			`SELECT c.id, c.name FROM game_category_link cl
-			 JOIN game_category c ON cl."categoryId" = c.id
-			 WHERE cl."gameId" = $1`,
+			`SELECT c.id, c.name FROM fc_category_link cl
+			 JOIN fc_category c ON cl."categoryId" = c.id
+			 WHERE cl."fcId" = $1`,
 			[query.id]
 		)
 		game.categories = catRes.rows
 
 		// 标签
 		const tagRes = await db.query(
-			`SELECT t.id, t.name FROM game_tag_link tl
-			 JOIN game_tag t ON tl."tagId" = t.id
-			 WHERE tl."gameId" = $1`,
+			`SELECT t.id, t.name FROM fc_tag_link tl
+			 JOIN fc_tag t ON tl."tagId" = t.id
+			 WHERE tl."fcId" = $1`,
 			[query.id]
 		)
 		game.tags = tagRes.rows
 
 		// 图片
-		const imgRes = await db.query('SELECT id, url, sort FROM game_img WHERE "gameId" = $1 ORDER BY sort', [query.id])
+		const imgRes = await db.query('SELECT id, url, sort FROM fc_img WHERE "fcId" = $1 ORDER BY sort', [query.id])
 		game.imgs = imgRes.rows
 
 		return base.respSuccess({ data: game })
@@ -128,7 +128,7 @@ actions.get.detail = async ({ query }) => {
 actions.post.play = async ({ body }) => {
 	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
 	try {
-		await db.query('UPDATE game SET "playCount" = "playCount" + 1 WHERE id = $1', [body.id])
+		await db.query('UPDATE fc SET "playCount" = "playCount" + 1 WHERE id = $1', [body.id])
 		return base.respSuccess({ msg: '计数成功' })
 	} catch (error) {
 		return base.respFailure({ msg: `计数失败: ${error.message}` })
@@ -138,8 +138,8 @@ actions.post.play = async ({ body }) => {
 /** 分类列表 */
 actions.get.category = async () => {
 	try {
-		const res = await db.query('SELECT id, name, sort FROM game_category ORDER BY sort DESC, id')
-		return base.respSuccess({ data: res.rows })
+		const res = await db.query('SELECT id, name, sort FROM fc_category ORDER BY sort DESC, id')
+		return base.respSuccess({ data: base.formatDbRows(res.rows) })
 	} catch (error) {
 		return base.respFailure({ msg: `查询失败: ${error.message}` })
 	}
@@ -148,8 +148,8 @@ actions.get.category = async () => {
 /** 标签列表 */
 actions.get.tag = async () => {
 	try {
-		const res = await db.query('SELECT id, name FROM game_tag ORDER BY id')
-		return base.respSuccess({ data: res.rows })
+		const res = await db.query('SELECT id, name FROM fc_tag ORDER BY id')
+		return base.respSuccess({ data: base.formatDbRows(res.rows) })
 	} catch (error) {
 		return base.respFailure({ msg: `查询失败: ${error.message}` })
 	}
@@ -159,9 +159,9 @@ actions.get.tag = async () => {
 actions.get.banner = async () => {
 	try {
 		const res = await db.query(
-			'SELECT id, "gameId", image, link, sort FROM game_banner WHERE "deleteTime" IS NULL ORDER BY sort DESC, id'
+			'SELECT id, "fcId", image, link, sort FROM fc_banner WHERE "deleteTime" IS NULL ORDER BY sort DESC, id'
 		)
-		return base.respSuccess({ data: res.rows })
+		return base.respSuccess({ data: base.formatDbRows(res.rows) })
 	} catch (error) {
 		return base.respFailure({ msg: `查询失败: ${error.message}` })
 	}
@@ -176,12 +176,12 @@ actions.post.insert = async ({ body }) => {
 
 	try {
 		const now = base.getTime()
-		const res = await db.query(
-			`INSERT INTO game (name, maker, "playerCount", "releaseDate", summary, sort, "insertTime")
-			 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-			[body.name, body.maker || '', body.playerCount || '', body.releaseDate || null, body.summary || '', body.sort || 0, now]
+		const newId = base.getId()
+		await db.query(
+			`INSERT INTO fc (id, name, maker, "playerCount", "releaseDate", summary, sort, "insertTime") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+			[newId, body.name, body.maker || '', body.playerCount || '', body.releaseDate || null, body.summary || '', body.sort || 0, now]
 		)
-		return base.respSuccess({ msg: '新增成功', data: res.rows[0].id })
+		return base.respSuccess({ msg: '新增成功', data: newId })
 	} catch (error) {
 		return base.respFailure({ msg: `新增失败: ${error.message}` })
 	}
@@ -193,14 +193,14 @@ actions.post.update = async ({ body }) => {
 
 	try {
 		// 读取旧记录，用于文件对比
-		const oldRes = await db.query('SELECT * FROM game WHERE id = $1', [body.id])
+		const oldRes = await db.query('SELECT * FROM fc WHERE id = $1', [body.id])
 		if (!oldRes.rowCount) return base.respFailure({ msg: '游戏不存在' })
 		const oldRecord = oldRes.rows[0]
 
 		// 更新主表
 		const now = base.getTime()
 		await db.query(
-			`UPDATE game SET
+			`UPDATE fc SET
 				name = $1, cover = $2, maker = $3, "playerCount" = $4, "releaseDate" = $5,
 				summary = $6, "romPath" = $7, sort = $8, "keymapConfig" = $9, "keymapDesc" = $10,
 				"updateTime" = $11
@@ -210,7 +210,7 @@ actions.post.update = async ({ body }) => {
 				body.cover ?? oldRecord.cover,
 				body.maker ?? oldRecord.maker,
 				body.playerCount ?? oldRecord.playerCount,
-				body.releaseDate ?? oldRecord.releaseDate,
+				body.releaseDate === '' ? null : (body.releaseDate ?? oldRecord.releaseDate),
 				body.summary ?? oldRecord.summary,
 				body.romPath ?? oldRecord.romPath,
 				body.sort ?? oldRecord.sort,
@@ -223,37 +223,37 @@ actions.post.update = async ({ body }) => {
 
 		// 同步别称表（先删后插）
 		if (body.aliases) {
-			await db.query('DELETE FROM game_alias WHERE "gameId" = $1', [body.id])
+			await db.query('DELETE FROM fc_alias WHERE "fcId" = $1', [body.id])
 			for (const alias of body.aliases) {
-				if (alias) await db.query('INSERT INTO game_alias ("gameId", alias) VALUES ($1, $2)', [body.id, alias])
+				if (alias) await db.query('INSERT INTO fc_alias (id, "fcId", alias) VALUES ($1, $2, $3)', [base.getId(), body.id, alias])
 			}
 		}
 
 		// 同步分类关联（先删后插）
 		if (body.categoryIds) {
-			await db.query('DELETE FROM game_category_link WHERE "gameId" = $1', [body.id])
+			await db.query('DELETE FROM fc_category_link WHERE "fcId" = $1', [body.id])
 			for (const cid of body.categoryIds) {
-				await db.query('INSERT INTO game_category_link ("gameId", "categoryId") VALUES ($1, $2)', [body.id, cid])
+				await db.query('INSERT INTO fc_category_link ("fcId", "categoryId") VALUES ($1, $2)', [body.id, cid])
 			}
 		}
 
 		// 同步标签关联（先删后插）
 		if (body.tagIds) {
-			await db.query('DELETE FROM game_tag_link WHERE "gameId" = $1', [body.id])
+			await db.query('DELETE FROM fc_tag_link WHERE "fcId" = $1', [body.id])
 			for (const tid of body.tagIds) {
-				await db.query('INSERT INTO game_tag_link ("gameId", "tagId") VALUES ($1, $2)', [body.id, tid])
+				await db.query('INSERT INTO fc_tag_link ("fcId", "tagId") VALUES ($1, $2)', [body.id, tid])
 			}
 		}
 
 		// 同步图片表（先删后插）
 		if (body.imgs) {
-			await db.query('DELETE FROM game_img WHERE "gameId" = $1', [body.id])
+			await db.query('DELETE FROM fc_img WHERE "fcId" = $1', [body.id])
 			for (let i = 0; i < body.imgs.length; i++) {
 				const img = body.imgs[i]
 				if (img.url) {
 					await db.query(
-						'INSERT INTO game_img ("gameId", url, sort) VALUES ($1, $2, $3)',
-						[body.id, img.url, img.sort ?? i]
+						'INSERT INTO fc_img (id, "fcId", url, sort) VALUES ($1, $2, $3, $4)',
+						[base.getId(), body.id, img.url, img.sort ?? i]
 					)
 				}
 			}
@@ -287,7 +287,7 @@ actions.post.delete = async ({ body }) => {
 	try {
 		const now = base.getTime()
 		for (const id of ids) {
-			await db.query('UPDATE game SET "deleteTime" = $1 WHERE id = $2', [now, id])
+			await db.query('UPDATE fc SET "deleteTime" = $1 WHERE id = $2', [now, id])
 		}
 		return base.respSuccess({ msg: `已移入回收站 ${ids.length} 条` })
 	} catch (error) {
@@ -301,16 +301,16 @@ actions.get.selectDeleted = async ({ query }) => {
 	const pageSize = parseInt(query.pageSize) || 24
 	const offset = (page - 1) * pageSize
 	try {
-		const countRes = await db.query('SELECT COUNT(*) FROM game WHERE "deleteTime" IS NOT NULL')
+		const countRes = await db.query('SELECT COUNT(*) FROM fc WHERE "deleteTime" IS NOT NULL')
 		const total = parseInt(countRes.rows[0].count)
 		const listRes = await db.query(
 			`SELECT id, name, cover, maker, "playCount", "deleteTime"
-			 FROM game WHERE "deleteTime" IS NOT NULL
+			 FROM fc WHERE "deleteTime" IS NOT NULL
 			 ORDER BY "deleteTime" DESC
 			 LIMIT $1 OFFSET $2`,
 			[pageSize, offset]
 		)
-		return base.respSuccess({ data: listRes.rows, total })
+		return base.respSuccess({ data: base.formatDbRows(listRes.rows), total })
 	} catch (error) {
 		return base.respFailure({ msg: `查询失败: ${error.message}` })
 	}
@@ -320,7 +320,7 @@ actions.get.selectDeleted = async ({ query }) => {
 actions.post.restore = async ({ body }) => {
 	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
 	try {
-		await db.query('UPDATE game SET "deleteTime" = NULL WHERE id = $1', [body.id])
+		await db.query('UPDATE fc SET "deleteTime" = NULL WHERE id = $1', [body.id])
 		return base.respSuccess({ msg: '恢复成功' })
 	} catch (error) {
 		return base.respFailure({ msg: `恢复失败: ${error.message}` })
@@ -342,13 +342,13 @@ actions.post.hardDelete = async ({ body }) => {
 		} catch {}
 
 		// 删除所有关联表数据
-		await db.query('DELETE FROM game_alias WHERE "gameId" = $1', [body.id])
-		await db.query('DELETE FROM game_category_link WHERE "gameId" = $1', [body.id])
-		await db.query('DELETE FROM game_tag_link WHERE "gameId" = $1', [body.id])
-		await db.query('DELETE FROM game_img WHERE "gameId" = $1', [body.id])
+		await db.query('DELETE FROM fc_alias WHERE "fcId" = $1', [body.id])
+		await db.query('DELETE FROM fc_category_link WHERE "fcId" = $1', [body.id])
+		await db.query('DELETE FROM fc_tag_link WHERE "fcId" = $1', [body.id])
+		await db.query('DELETE FROM fc_img WHERE "fcId" = $1', [body.id])
 
 		// 删除主表
-		await db.query('DELETE FROM game WHERE id = $1', [body.id])
+		await db.query('DELETE FROM fc WHERE id = $1', [body.id])
 
 		return base.respSuccess({ msg: '永久删除成功' })
 	} catch (error) {
@@ -360,11 +360,12 @@ actions.post.hardDelete = async ({ body }) => {
 actions.post.insertCategory = async ({ body }) => {
 	if (!body.name) return base.respFailure({ msg: 'name 参数缺失' })
 	try {
-		const res = await db.query(
-			'INSERT INTO game_category (name, sort) VALUES ($1, $2) RETURNING id',
-			[body.name, body.sort || 0]
+		const newId = base.getId()
+		await db.query(
+			'INSERT INTO fc_category (id, name, sort) VALUES ($1, $2, $3) ',
+			[newId, body.name, body.sort || 0]
 		)
-		return base.respSuccess({ msg: '新增成功', data: res.rows[0].id })
+		return base.respSuccess({ msg: '新增成功', data: newId })
 	} catch (error) {
 		return base.respFailure({ msg: `新增失败: ${error.message}` })
 	}
@@ -374,7 +375,7 @@ actions.post.insertCategory = async ({ body }) => {
 actions.post.updateCategory = async ({ body }) => {
 	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
 	try {
-		await db.query('UPDATE game_category SET name = $1, sort = $2 WHERE id = $3', [body.name, body.sort || 0, body.id])
+		await db.query('UPDATE fc_category SET name = $1, sort = $2 WHERE id = $3', [body.name, body.sort || 0, body.id])
 		return base.respSuccess({ msg: '更新成功' })
 	} catch (error) {
 		return base.respFailure({ msg: `更新失败: ${error.message}` })
@@ -385,8 +386,8 @@ actions.post.updateCategory = async ({ body }) => {
 actions.post.deleteCategory = async ({ body }) => {
 	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
 	try {
-		await db.query('DELETE FROM game_category_link WHERE "categoryId" = $1', [body.id])
-		await db.query('DELETE FROM game_category WHERE id = $1', [body.id])
+		await db.query('DELETE FROM fc_category_link WHERE "categoryId" = $1', [body.id])
+		await db.query('DELETE FROM fc_category WHERE id = $1', [body.id])
 		return base.respSuccess({ msg: '删除成功' })
 	} catch (error) {
 		return base.respFailure({ msg: `删除失败: ${error.message}` })
@@ -397,10 +398,22 @@ actions.post.deleteCategory = async ({ body }) => {
 actions.post.insertTag = async ({ body }) => {
 	if (!body.name) return base.respFailure({ msg: 'name 参数缺失' })
 	try {
-		const res = await db.query('INSERT INTO game_tag (name) VALUES ($1) RETURNING id', [body.name])
-		return base.respSuccess({ msg: '新增成功', data: res.rows[0].id })
+		const newId = base.getId()
+		await db.query('INSERT INTO fc_tag (id, name) VALUES ($1, $2) ', [newId, body.name])
+		return base.respSuccess({ msg: '新增成功', data: newId })
 	} catch (error) {
 		return base.respFailure({ msg: `新增失败: ${error.message}` })
+	}
+}
+
+/** 更新标签 */
+actions.post.updateTag = async ({ body }) => {
+	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
+	try {
+		await db.query('UPDATE fc_tag SET name = $1 WHERE id = $2', [body.name, body.id])
+		return base.respSuccess({ msg: '更新成功' })
+	} catch (error) {
+		return base.respFailure({ msg: `更新失败: ${error.message}` })
 	}
 }
 
@@ -408,8 +421,8 @@ actions.post.insertTag = async ({ body }) => {
 actions.post.deleteTag = async ({ body }) => {
 	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
 	try {
-		await db.query('DELETE FROM game_tag_link WHERE "tagId" = $1', [body.id])
-		await db.query('DELETE FROM game_tag WHERE id = $1', [body.id])
+		await db.query('DELETE FROM fc_tag_link WHERE "tagId" = $1', [body.id])
+		await db.query('DELETE FROM fc_tag WHERE id = $1', [body.id])
 		return base.respSuccess({ msg: '删除成功' })
 	} catch (error) {
 		return base.respFailure({ msg: `删除失败: ${error.message}` })
@@ -420,11 +433,12 @@ actions.post.deleteTag = async ({ body }) => {
 actions.post.insertBanner = async ({ body }) => {
 	try {
 		const now = base.getTime()
-		const res = await db.query(
-			'INSERT INTO game_banner ("gameId", image, link, sort, "insertTime") VALUES ($1, $2, $3, $4, $5) RETURNING id',
-			[body.gameId || null, body.image || '', body.link || '', body.sort || 0, now]
+		const newId = base.getId()
+		await db.query(
+			'INSERT INTO fc_banner (id, "fcId", image, link, sort, "insertTime") VALUES ($1, $2, $3, $4, $5, $6) ',
+			[newId, body.fcId || null, body.image || '', body.link || '', body.sort || 0, now]
 		)
-		return base.respSuccess({ msg: '新增成功', data: res.rows[0].id })
+		return base.respSuccess({ msg: '新增成功', data: newId })
 	} catch (error) {
 		return base.respFailure({ msg: `新增失败: ${error.message}` })
 	}
@@ -434,10 +448,10 @@ actions.post.insertBanner = async ({ body }) => {
 actions.post.updateBanner = async ({ body }) => {
 	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
 	try {
-		const oldRes = await db.query('SELECT image FROM game_banner WHERE id = $1', [body.id])
+		const oldRes = await db.query('SELECT image FROM fc_banner WHERE id = $1', [body.id])
 		await db.query(
-			'UPDATE game_banner SET "gameId" = $1, image = $2, link = $3, sort = $4 WHERE id = $5',
-			[body.gameId || null, body.image || '', body.link || '', body.sort || 0, body.id]
+			'UPDATE fc_banner SET "fcId" = $1, image = $2, link = $3, sort = $4 WHERE id = $5',
+			[body.fcId || null, body.image || '', body.link || '', body.sort || 0, body.id]
 		)
 		// 清理旧图片
 		if (oldRes.rowCount && body.image && oldRes.rows[0].image && body.image !== oldRes.rows[0].image) {
@@ -454,13 +468,62 @@ actions.post.updateBanner = async ({ body }) => {
 actions.post.deleteBanner = async ({ body }) => {
 	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
 	try {
-		const oldRes = await db.query('SELECT image FROM game_banner WHERE id = $1', [body.id])
-		await db.query('DELETE FROM game_banner WHERE id = $1', [body.id])
+		const oldRes = await db.query('SELECT image FROM fc_banner WHERE id = $1', [body.id])
+		await db.query('DELETE FROM fc_banner WHERE id = $1', [body.id])
 		// 清理图片文件
 		if (oldRes.rowCount && oldRes.rows[0].image) {
 			const key = extract_key(oldRes.rows[0].image)
 			if (key) try { await provider.deleteFile(BUCKET, key) } catch {}
 		}
+		return base.respSuccess({ msg: '删除成功' })
+	} catch (error) {
+		return base.respFailure({ msg: `删除失败: ${error.message}` })
+	}
+}
+
+// ============================== 厂商管理 ==============================
+
+/** 厂商列表 */
+actions.get.maker = async () => {
+	try {
+		const res = await db.query('SELECT id, name, sort FROM fc_maker ORDER BY sort DESC, id')
+		return base.respSuccess({ data: base.formatDbRows(res.rows) })
+	} catch (error) {
+		return base.respFailure({ msg: `查询失败: ${error.message}` })
+	}
+}
+
+/** 新增厂商 */
+actions.post.insertMaker = async ({ body }) => {
+	if (!body.name) return base.respFailure({ msg: 'name 参数缺失' })
+	try {
+		const newId = base.getId()
+		await db.query(
+			'INSERT INTO fc_maker (id, name, sort) VALUES ($1, $2, $3) ',
+			[newId, body.name, body.sort || 0]
+		)
+		return base.respSuccess({ msg: '新增成功', data: newId })
+	} catch (error) {
+		return base.respFailure({ msg: `新增失败: ${error.message}` })
+	}
+}
+
+/** 更新厂商 */
+actions.post.updateMaker = async ({ body }) => {
+	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
+	try {
+		await db.query('UPDATE fc_maker SET name = $1, sort = $2 WHERE id = $3', [body.name, body.sort || 0, body.id])
+		return base.respSuccess({ msg: '更新成功' })
+	} catch (error) {
+		return base.respFailure({ msg: `更新失败: ${error.message}` })
+	}
+}
+
+/** 删除厂商 */
+actions.post.deleteMaker = async ({ body }) => {
+	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
+	try {
+		await db.query('DELETE FROM fc_maker WHERE id = $1', [body.id])
 		return base.respSuccess({ msg: '删除成功' })
 	} catch (error) {
 		return base.respFailure({ msg: `删除失败: ${error.message}` })

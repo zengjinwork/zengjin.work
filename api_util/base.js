@@ -100,6 +100,14 @@ base.formatDbRows = rows => {
 				row[key] = '' // 快速处理null/undefined/NaN
 				return
 			}
+			if (val instanceof Date) {
+				if (key.toLowerCase().includes('date')) {
+					row[key] = dayjs(val).format('YYYY-MM-DD')
+				} else {
+					row[key] = dayjs(val).format('YYYY-MM-DD HH:mm:ss')
+				}
+				return
+			}
 			if (typeof val == 'string') {
 				// 尝试解析 JSON
 				if (/^[\[{].*[\]}]$/.test(val)) {
