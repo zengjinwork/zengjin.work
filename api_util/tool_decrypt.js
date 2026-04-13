@@ -17,7 +17,7 @@ const ALGORITHM = 'aes-256-cbc'
  * 从.env文件读取环境变量
  */
 function loadEnv() {
-	const envPath = path.resolve(__dirname, '../../.env')
+	const envPath = path.resolve(__dirname, '../.env')
 	if (!fs.existsSync(envPath)) {
 		throw new Error(`.env 文件未找到: ${envPath}`)
 	}
