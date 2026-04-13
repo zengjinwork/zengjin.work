@@ -170,17 +170,58 @@ actions.get.banner = async () => {
 // ============================== 管理后台（需鉴权） ==============================
 // TODO: 接入 checkAuth 鉴权守卫，当前先跳过便于调试
 
-/** 新增游戏（返回新 id，不含文件 URL，文件上传后再 update 补充） */
+/** 新增游戏（一次到位，含文件 URL 与关联表同步） */
 actions.post.insert = async ({ body }) => {
 	if (!body.name) return base.respFailure({ msg: 'name 参数缺失' })
 
 	try {
+		// 验重：同名游戏不允许重复新增
+		const dupRes = await db.query('SELECT id FROM fc WHERE name = $1 AND "deleteTime" IS NULL', [body.name])
+		if (dupRes.rowCount) return base.respFailure({ msg: `游戏名称「${body.name}」已存在` })
+
 		const now = base.getTime()
 		const newId = base.getId()
 		await db.query(
-			`INSERT INTO fc (id, name, maker, "playerCount", "releaseDate", summary, sort, "insertTime") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-			[newId, body.name, body.maker || '', body.playerCount || '', body.releaseDate || null, body.summary || '', body.sort || 0, now]
+			`INSERT INTO fc (id, name, cover, maker, "playerCount", "releaseDate", summary, "romPath", sort, "keymapConfig", "keymapDesc", "insertTime")
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			[
+				newId, body.name, body.cover || '', body.maker || '', body.playerCount || '',
+				body.releaseDate === '' ? null : (body.releaseDate || null),
+				body.summary || '', body.romPath || '', body.sort || 0,
+				body.keymapConfig != null ? JSON.stringify(body.keymapConfig) : null,
+				body.keymapDesc != null ? JSON.stringify(body.keymapDesc) : null,
+				now,
+			]
 		)
+
+		// 同步别称表
+		if (body.aliases?.length) {
+			for (const alias of body.aliases) {
+				if (alias) await db.query('INSERT INTO fc_alias (id, "fcId", alias) VALUES ($1, $2, $3)', [base.getId(), newId, alias])
+			}
+		}
+		// 同步分类关联
+		if (body.categoryIds?.length) {
+			for (const cid of body.categoryIds) {
+				await db.query('INSERT INTO fc_category_link ("fcId", "categoryId") VALUES ($1, $2)', [newId, cid])
+			}
+		}
+		// 同步标签关联
+		if (body.tagIds?.length) {
+			for (const tid of body.tagIds) {
+				await db.query('INSERT INTO fc_tag_link ("fcId", "tagId") VALUES ($1, $2)', [newId, tid])
+			}
+		}
+		// 同步图片表
+		if (body.imgs?.length) {
+			for (let i = 0; i < body.imgs.length; i++) {
+				const img = body.imgs[i]
+				if (img.url) {
+					await db.query('INSERT INTO fc_img (id, "fcId", url, sort) VALUES ($1, $2, $3, $4)', [base.getId(), newId, img.url, img.sort ?? i])
+				}
+			}
+		}
+
 		return base.respSuccess({ msg: '新增成功', data: newId })
 	} catch (error) {
 		return base.respFailure({ msg: `新增失败: ${error.message}` })
