@@ -1,12 +1,9 @@
 window.$config = {
-	app: 'wired', 
+	...window.$config,
+	app: 'wired',
 	title: 'Wired Elements',
-	map_center: {
-		//地图初始中心点: 临沂市
-		lng: 118.35,
-		lat: 35.08,
-	},
-	map_zoom: 12, //地图初始缩放值
-	map_tdt_code: 156371300, //天地图code: 临沂市
-	map_tdt_key: ['2856341e69e88c285542cf43c4e665e0'],
+	keepAlive: false, // 是否开启组件缓存
+	multiTabs: false, // 是否开启多标签页
+	loginStrict: false, // 是否强制登录
+	publicLayout: false, // 是否公开可见完整框架布局 (false 时仅 admin 可见, 未登录或其他用户仅能看见具体页面内容)
 }
