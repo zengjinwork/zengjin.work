@@ -39,11 +39,29 @@ const actions = {
 		 * 登录
 		 */
 		login: async ({ req, resp, body }) => {
-			const { username, password } = body
+			const { username, password, turnstileToken } = body
 
-			const invalids = base.checkValids(body, ['username', 'password'])
+			const invalids = base.checkValids(body, ['username', 'password', 'turnstileToken'])
 			if (invalids) {
 				return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
+			}
+
+			// Turnstile 验证
+			try {
+				const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/x-www-form-urlencoded',
+					},
+					body: `secret=${process.env.TURNSTILE_SECRET_KEY}&response=${turnstileToken}`,
+				})
+				const verifyOutcome = await verifyRes.json()
+				if (!verifyOutcome.success) {
+					return base.respFailure({ msg: '人机验证失败，请重试' })
+				}
+			} catch (err) {
+				console.error('Turnstile 验证异常:', err)
+				return base.respFailure({ msg: '人机验证服务异常' })
 			}
 
 			const db = createDbAdmin()
