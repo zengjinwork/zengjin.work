@@ -123,14 +123,16 @@ export default [
 			{
 				name: '底图',
 				type: 'xyz',
-				url: 'https://webst01.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+				url: 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+				subdomains: '1234',
 				chinaCRS: 'GCJ02',
 				maximumLevel: 18,
 			},
 			{
 				name: '注记',
 				type: 'xyz',
-				url: 'https://webst01.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}',
+				url: 'https://webst0{s}.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}',
+				subdomains: '1234',
 				chinaCRS: 'GCJ02',
 				maximumLevel: 18,
 			},
