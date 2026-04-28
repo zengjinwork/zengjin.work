@@ -1,4 +1,4 @@
-import createDbAdmin from '#api_util/db_admin.js'
+import db from '#api_util/db.js'
 import base from '#api_util/base.js'
 import { decryptPassword, encryptPassword, hashToken } from '#api_util/crypto.js'
 import { generateAccessToken, generateRefreshToken } from '#api_util/jwt.js'
@@ -19,9 +19,15 @@ const actions = {
 		 */
 		me: requireAuth(async ({ req }) => {
 			const { userId } = req.user
-			const db = createDbAdmin()
 
-			const { data: users, error } = await db.from('base_user').select('id, username, phone, nickname').eq('id', userId).limit(1)
+			let users = []
+			let error = null
+			try {
+				const result = await db.query('SELECT id, username, phone, nickname FROM base_user WHERE id = $1 LIMIT 1', [userId])
+				users = result.rows
+			} catch (err) {
+				error = err
+			}
 
 			if (error || !users || users.length === 0) {
 				return base.respFailure({ msg: '用户不存在或获取失败' })
@@ -64,12 +70,14 @@ const actions = {
 				return base.respFailure({ msg: '人机验证服务异常' })
 			}
 
-			const db = createDbAdmin()
-			const { data: users, error: queryError } = await db
-				.from('base_user')
-				.select('id, username, password, phone, nickname')
-				.eq('username', username)
-				.limit(1)
+			let users = []
+			let queryError = null
+			try {
+				const result = await db.query('SELECT id, username, password, phone, nickname FROM base_user WHERE username = $1 LIMIT 1', [username])
+				users = result.rows
+			} catch (err) {
+				queryError = err
+			}
 
 			if (queryError || !users || users.length === 0) {
 				return base.respFailure({ msg: '用户名或密码错误' })
@@ -95,13 +103,14 @@ const actions = {
 			const userAgent = req.headers['user-agent'] || ''
 			const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || ''
 
-			await db.from('base_user_session').insert({
-				user_id: user.id,
-				refresh_token_hash: tokenHash,
-				expires_at: expiresAt.toISOString(),
-				user_agent: userAgent,
-				ip_address: ipAddress,
-			})
+			try {
+				await db.query(
+					'INSERT INTO base_user_session (user_id, refresh_token_hash, expires_at, user_agent, ip_address) VALUES ($1, $2, $3, $4, $5)',
+					[user.id, tokenHash, expiresAt.toISOString(), userAgent, ipAddress]
+				)
+			} catch (err) {
+				console.error('保存 session 失败:', err)
+			}
 
 			const isProd = process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production'
 			const cookieOptions = [
@@ -134,8 +143,11 @@ const actions = {
 
 			if (refreshToken) {
 				const tokenHash = hashToken(refreshToken)
-				const db = createDbAdmin()
-				await db.from('base_user_session').update({ revoked_at: new Date().toISOString() }).eq('refresh_token_hash', tokenHash)
+				try {
+					await db.query('UPDATE base_user_session SET revoked_at = $1 WHERE refresh_token_hash = $2', [new Date().toISOString(), tokenHash])
+				} catch (err) {
+					console.error('更新 session 失败:', err)
+				}
 			}
 
 			resp.setHeader('Set-Cookie', 'refreshToken=; HttpOnly; Path=/; Max-Age=0')
@@ -155,37 +167,51 @@ const actions = {
 			if (!refreshToken) return resp.status(401).json({ code: -1, msg: '未提供刷新令牌' })
 
 			const tokenHash = hashToken(refreshToken)
-			const db = createDbAdmin()
-			const { data: sessions, error: queryError } = await db
-				.from('base_user_session')
-				.select('id, user_id, expires_at, revoked_at')
-				.eq('refresh_token_hash', tokenHash)
-				.limit(1)
+			let sessions = []
+			let queryError = null
+			try {
+				const result = await db.query('SELECT id, user_id, expires_at, revoked_at FROM base_user_session WHERE refresh_token_hash = $1 LIMIT 1', [tokenHash])
+				sessions = result.rows
+			} catch (err) {
+				queryError = err
+			}
 
 			if (queryError || !sessions || sessions.length === 0 || sessions[0].revoked_at || new Date(sessions[0].expires_at) < new Date()) {
 				return resp.status(401).json({ code: -1, msg: '刷新令牌无效或已过期' })
 			}
 
 			const session = sessions[0]
-			const { data: users, error: userError } = await db.from('base_user').select('id, username').eq('id', session.user_id).limit(1)
+			let users = []
+			let userError = null
+			try {
+				const result = await db.query('SELECT id, username FROM base_user WHERE id = $1 LIMIT 1', [session.user_id])
+				users = result.rows
+			} catch (err) {
+				userError = err
+			}
 
 			if (userError || !users || users.length === 0) return resp.status(401).json({ code: -1, msg: '用户不存在' })
 
 			const user = users[0]
-			await db.from('base_user_session').update({ revoked_at: new Date().toISOString() }).eq('id', session.id)
+			try {
+				await db.query('UPDATE base_user_session SET revoked_at = $1 WHERE id = $2', [new Date().toISOString(), session.id])
+			} catch (err) {
+				console.error('更新 session 失败:', err)
+			}
 
 			const newAccessToken = generateAccessToken({ userId: user.id, username: user.username })
 			const newRefreshToken = generateRefreshToken()
 			const newTokenHash = hashToken(newRefreshToken)
 
 			const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-			await db.from('base_user_session').insert({
-				user_id: user.id,
-				refresh_token_hash: newTokenHash,
-				expires_at: expiresAt.toISOString(),
-				user_agent: req.headers['user-agent'] || '',
-				ip_address: req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
-			})
+			try {
+				await db.query(
+					'INSERT INTO base_user_session (user_id, refresh_token_hash, expires_at, user_agent, ip_address) VALUES ($1, $2, $3, $4, $5)',
+					[user.id, newTokenHash, expiresAt.toISOString(), req.headers['user-agent'] || '', req.headers['x-forwarded-for'] || req.socket.remoteAddress || '']
+				)
+			} catch (err) {
+				console.error('保存 session 失败:', err)
+			}
 
 			const isProd = process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production'
 			const cookieOptions = [
@@ -213,8 +239,14 @@ const actions = {
 				return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
 			}
 
-			const db = createDbAdmin()
-			const { data: users, error: queryError } = await db.from('base_user').select('password').eq('id', userId).limit(1)
+			let users = []
+			let queryError = null
+			try {
+				const result = await db.query('SELECT password FROM base_user WHERE id = $1 LIMIT 1', [userId])
+				users = result.rows
+			} catch (err) {
+				queryError = err
+			}
 
 			if (queryError || !users || users.length === 0) {
 				return base.respFailure({ msg: '用户不存在' })
@@ -234,7 +266,12 @@ const actions = {
 
 			// 更新密码
 			const encryptedNewPassword = encryptPassword(passwordNew)
-			const { error: updateError } = await db.from('base_user').update({ password: encryptedNewPassword }).eq('id', userId)
+			let updateError = null
+			try {
+				await db.query('UPDATE base_user SET password = $1 WHERE id = $2', [encryptedNewPassword, userId])
+			} catch (err) {
+				updateError = err
+			}
 
 			if (updateError) {
 				console.error('更新密码失败:', updateError)
@@ -242,7 +279,11 @@ const actions = {
 			}
 
 			// 修改成功后作废该用户所有的 Session
-			await db.from('base_user_session').update({ revoked_at: new Date().toISOString() }).eq('user_id', userId).is('revoked_at', null)
+			try {
+				await db.query('UPDATE base_user_session SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL', [new Date().toISOString(), userId])
+			} catch (err) {
+				console.error('作废 session 失败:', err)
+			}
 
 			return base.respSuccess({ msg: '密码修改成功' })
 		}),
