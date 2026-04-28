@@ -38,8 +38,7 @@ function open_dialog(type) {
 			</t-space>
 		</div>
 	</section>
-	<DialogModel class="预览文件Dialog" v-model:visible="state.dialog" attach_to_body close_easy
-		:t_dialog="{ header: state.type }">
+	<DialogModel class="预览文件Dialog" v-model:visible="state.dialog" attachToBody closeEasy :header="state.type">
 		<template v-if="false"> </template>
 
 		<template v-else-if="['jpg', 'png'].includes(state.type)">
@@ -55,8 +54,7 @@ function open_dialog(type) {
 		</template>
 
 		<template v-else-if="['pdf'].includes(state.type)">
-			<iframe
-				:src="`${base.isMob ? '/$base/plugin/pdfjs-4.9.155/web/viewer.html?file=' : ''}/$base/file/demo.${state.type}`"></iframe>
+			<iframe :src="`${base.isMob ? '/$base/plugin/pdfjs-4.9.155/web/viewer.html?file=' : ''}/$base/file/demo.${state.type}`"></iframe>
 		</template>
 	</DialogModel>
 
@@ -75,7 +73,7 @@ function open_dialog(type) {
 		justify-content: center;
 		position: relative;
 
-		&>* {
+		& > * {
 			flex: initial;
 			object-fit: contain;
 			max-width: calc(100vw - 36px);
@@ -83,7 +81,7 @@ function open_dialog(type) {
 			overflow: hidden;
 		}
 
-		&>iframe {
+		& > iframe {
 			width: 850px;
 			height: 1200px;
 			border: 0;

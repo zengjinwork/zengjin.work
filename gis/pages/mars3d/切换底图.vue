@@ -1,9 +1,7 @@
 <script setup>
-import Precode from '/src/components/Precode.vue'
+import Map from '/src/components/MapMars3d.vue'
+import MapCtrl_basemap from '/src/components/MapCtrlMars3d/MapCtrlMars3d_basemap.vue'
 
-import { ChevronDownIcon } from 'tdesign-icons-vue-next'
-import Mars3d from '/src/components/Mars3d.vue'
-import Mars3d_basemaps from '/$base/js/Mars3d_basemaps.js'
 //props属性===================================================================
 const props = defineProps({})
 
@@ -11,76 +9,41 @@ const props = defineProps({})
 const emits = defineEmits([])
 
 //初始化===================================================================
-// onMounted(() => {
-// 	init_tree()
-// })
-
-const state = reactive({
-	active: 0,
+const main = reactive({
+	mapDone: false,
 })
 
 let map = null
-function inited_map(value, ref) {
+function inited_map(value) {
 	map = value
-	click_basemap()
-}
-
-function click_basemap(i = 0) {
-	state.active = i
-	map.basemap = Mars3d_basemaps[state.active]?.name
+	map.flyToPoint([118.35, 35.08], { radius: 145000, duration: 1 })
+	main.mapDone = true
 }
 </script>
 
 <template>
-	<Mars3d @inited="inited_map">
-		<div class="layerControl">
-			<t-dropdown trigger="click" maxColumnWidth="auto" maxHeight="auto">
-				<t-link theme="primary">
-					{{ Mars3d_basemaps[state.active]?.name }}
-					<ChevronDownIcon />
-				</t-link>
-				<t-dropdown-menu>
-					<t-dropdown-item v-for="(item, i) in Mars3d_basemaps" :key="item.name" :active="i == state.active"
-						:divider="item.divider" @click="click_basemap(i)">
-						{{ item.name }}
-					</t-dropdown-item>
-				</t-dropdown-menu>
-			</t-dropdown>
-		</div>
-	</Mars3d>
-	<Precode url="/gis/pages/mars3d/切换底图.vue" />
+	<section>
+		<Map @inited="inited_map" />
+		<template v-if="main.mapDone">
+			<div class="MapCtrls">
+				<MapCtrl_basemap :map="map" />
+			</div>
+		</template>
+	</section>
 </template>
 
 <style lang="less" scoped>
-.Mars3d {
-	.layerControl {
+section {
+	width: 100%;
+	height: 100%;
+	position: relative;
+	overflow: hidden;
+
+	.MapCtrls {
 		position: absolute;
-		z-index: 1;
-		bottom: 10px;
+		z-index: 401;
+		bottom: 36px;
 		left: 10px;
-
-		display: flex;
-		gap: 10px;
-
-		:deep(.t-link),
-		:deep(.t-checkbox) {
-			position: relative;
-			display: flex;
-			overflow: hidden;
-			width: min-content;
-			padding: 5px 8px 5px 10px;
-
-			cursor: pointer;
-			white-space: nowrap;
-			border-radius: 4px;
-			// background-color: #fff;
-			background: var(--bg-hard);
-			//box-shadow: 1px 1px 4px var(--bd-hard);
-			box-shadow: 1px 2px 8px #2366;
-
-			font-size: 1rem;
-
-		}
 	}
 }
 </style>

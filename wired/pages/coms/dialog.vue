@@ -30,11 +30,11 @@ function click_close() {
 				<wired-button id="openDialog" @click="click_open">打开弹窗</wired-button>
 
 				<wired-dialog :open="state.open">
-					<div style="max-width: 400px">
+					<div v-if="state.open" style="max-width: 400px">
 						<p>
-							This is a paragraph and here's a link about <wired-link href="./button.html">wired-button</wired-link> and well well well, what do
-							you know, same link with more elevation <wired-link elevation="3" href="./button.html">wired-button </wired-link>. Here's another
-							link that opens in a new tab about <wired-link href="./input.html" target="_blank">wired-input </wired-link>. Lorem ipsum dolor sit
+							This is a paragraph and here's a link about <wired-link href="./#/coms/button">wired-button</wired-link> and well well well, what do
+							you know, same link with more elevation <wired-link elevation="3" href="./#/coms/button">wired-button </wired-link>. Here's another
+							link that opens in a new tab about <wired-link href="./#/coms/input" target="_blank">wired-input </wired-link>. Lorem ipsum dolor sit
 							amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
 						</p>
 						<div style="text-align: right; padding: 30px 16px 16px">

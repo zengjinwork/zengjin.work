@@ -2,8 +2,7 @@
 import Precode from '/src/components/Precode.vue'
 
 import { ChevronDownIcon } from 'tdesign-icons-vue-next'
-import Mars3d from '/src/components/Mars3d.vue'
-import Mars3d_terrains from '/$base/js/Mars3d_terrains.js'
+import Map from '/src/components/MapMars3d.vue'
 
 //props属性===================================================================
 const props = defineProps({})
@@ -16,53 +15,69 @@ const emits = defineEmits([])
 // 	init_tree()
 // })
 
-const state = reactive({
-	active: 0,
+let map = null
+const main = reactive({
+	mapDone: false,
+	name: '',
 })
 
-let map = null
 function inited_map(value, ref) {
 	map = value
-	click_terrain()
+	map.setCameraView({ lat: 35.435943, lng: 113.455323, alt: 204.4, heading: 42.5, pitch: -2.8 })
+
+	map.on('terrainChange', e => {
+		main.name = e.marsOptions.name || map.terrains.at(-1).name
+	})
+	click_item(map.terrains[0].name)
+
+	main.mapDone = true
 }
 
-function click_terrain(i = 0) {
-	state.active = i
-	if (Mars3d_terrains[state.active]?.url) {
-		map.terrainProvider = mars3d.LayerUtil.createTerrainProvider(Mars3d_terrains[state.active])
+function click_item(name) {
+	let item = map.terrains.find(item => item.name == name)
+	if (item?.url) {
+		map.terrainProvider = mars3d.LayerUtil.createTerrainProvider(item)
 	} else {
 		map.terrainProvider = mars3d.LayerUtil.getNoTerrainProvider()
 	}
 }
-
 </script>
 
 <template>
-	<Mars3d @inited="inited_map">
-		<div class="layerControl">
-			<t-dropdown trigger="click" maxColumnWidth="auto" maxHeight="auto">
+	<section>
+		<Map @inited="inited_map" />
+		<div class="layerControl" v-if="main.mapDone">
+			<t-dropdown trigger="click" maxColumnWidth="auto" maxHeight="500" placement="bottom-right">
 				<t-link theme="primary">
-					{{ Mars3d_terrains[state.active]?.name }}
+					{{ main.name }}
 					<ChevronDownIcon />
 				</t-link>
 				<t-dropdown-menu>
-					<t-dropdown-item v-for="(item, i) in Mars3d_terrains" :key="item.name" :active="i == state.active"
-						:divider="item.divider" @click="click_terrain(i)">
+					<t-dropdown-item
+						v-for="item in map.terrains"
+						:key="item.name"
+						:active="item.name == main.name"
+						:divider="item.divider"
+						@click="click_item(item.name)">
 						{{ item.name }}
 					</t-dropdown-item>
 				</t-dropdown-menu>
 			</t-dropdown>
 		</div>
-	</Mars3d>
+	</section>
 	<Precode url="/gis/pages/mars3d/切换地形.vue" />
 </template>
 
 <style lang="less" scoped>
-.Mars3d {
+section {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+
 	.layerControl {
 		position: absolute;
-		z-index: 1;
-		bottom: 10px;
+		z-index: 21;
+		bottom: 36px;
 		left: 10px;
 
 		:deep(.t-link) {

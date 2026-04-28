@@ -12,12 +12,11 @@ import Content from '/src/components/Content.vue'
 const myCardRef = ref(null)
 
 const state = reactive({
-	content:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enimad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
+	content: `中国海域总面积约473万平方千米，有大小岛屿7600多个，其中台湾岛最大，面积35759平方千米。China's maritime territory covers a total area of approximately 4.73 million square kilometers and includes more than 7,600 islands of various sizes, with Taiwan Island being the largest, covering an area of 35,759 square kilometers.`,
 })
 
 function click_change() {
-	state.content = `设备：Windows 上的 Violentmonkey<br>地点：France附近<br>IP：91.134.49.75<br>时间：${new Date().toLocaleString()}`
+	state.content = `设备：Windows 上的 Violentmonkey<br>地点：France附近<br>　IP：91.134.49.75<br>时间：${new Date().toLocaleString()}`
 	// myCardRef.value.requestUpdate()
 }
 </script>
@@ -32,22 +31,25 @@ function click_change() {
 					<wired-card>
 						<h4>常规</h4>
 						<p>
-							Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-							ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+							中国海域总面积约473万平方千米，有大小岛屿7600多个，其中台湾岛最大，面积35759平方千米。China's maritime territory covers a total area
+							of approximately 4.73 million square kilometers and includes more than 7,600 islands of various sizes, with Taiwan Island being the
+							largest, covering an area of 35,759 square kilometers.
 						</p>
 					</wired-card>
 					<wired-card elevation="3">
 						<h4>高度3</h4>
 						<p>
-							Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-							ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+							中国海域总面积约473万平方千米，有大小岛屿7600多个，其中台湾岛最大，面积35759平方千米。China's maritime territory covers a total area
+							of approximately 4.73 million square kilometers and includes more than 7,600 islands of various sizes, with Taiwan Island being the
+							largest, covering an area of 35,759 square kilometers.
 						</p>
 					</wired-card>
 					<wired-card elevation="5">
 						<h4>高度5</h4>
 						<p>
-							Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-							ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+							中国海域总面积约473万平方千米，有大小岛屿7600多个，其中台湾岛最大，面积35759平方千米。China's maritime territory covers a total area
+							of approximately 4.73 million square kilometers and includes more than 7,600 islands of various sizes, with Taiwan Island being the
+							largest, covering an area of 35,759 square kilometers.
 						</p>
 					</wired-card>
 				</t-space>
@@ -57,8 +59,9 @@ function click_change() {
 					<wired-card elevation="4" fill="var(--yellow)" style="color: var(--red)">
 						<h4>样式</h4>
 						<p>
-							Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-							ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+							中国海域总面积约473万平方千米，有大小岛屿7600多个，其中台湾岛最大，面积35759平方千米。China's maritime territory covers a total area
+							of approximately 4.73 million square kilometers and includes more than 7,600 islands of various sizes, with Taiwan Island being the
+							largest, covering an area of 35,759 square kilometers.
 						</p>
 					</wired-card>
 				</t-space>

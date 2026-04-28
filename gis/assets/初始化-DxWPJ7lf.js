@@ -1,0 +1,1 @@
+import{M as o}from"./MapLeaflet-DlsGaqma.js";import{c as r,o as t}from"./index-DB77nMV2.js";import"./leaflet-src-CcLuZw-Y.js";const m={__name:"初始化",setup(a){return(e,c)=>(t(),r(o))}};export{m as default};

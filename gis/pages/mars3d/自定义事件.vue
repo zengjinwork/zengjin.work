@@ -1,7 +1,7 @@
 <script setup>
 import Precode from '/src/components/Precode.vue'
 
-import Mars3d from '/src/components/Mars3d.vue'
+import Map from '/src/components/MapMars3d.vue'
 //props属性===================================================================
 const props = defineProps({})
 
@@ -89,9 +89,9 @@ const mouse = reactive({
 </script>
 
 <template>
-	<Mars3d @inited="inited_map">
+	<Map @inited="inited_map">
 		<div class="mouse" :id="mouseId" draggable="false"></div>
-	</Mars3d>
+	</Map>
 	<Precode url="/gis/pages/mars3d/自定义事件.vue" />
 </template>
 
