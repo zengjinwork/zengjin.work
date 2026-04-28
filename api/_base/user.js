@@ -38,6 +38,23 @@ const actions = {
 				data: users[0],
 			})
 		}),
+
+		/**
+		 * 生成 ALTCHA 人机验证挑战
+		 */
+		challenge: async ({ req, resp }) => {
+			try {
+				const { createChallenge } = await import('altcha-lib/v1')
+				const challenge = await createChallenge({
+					hmacKey: process.env.CRYPTO_SECRET || 'default-secret',
+					maxNumber: 100000, // 生成难度，越大计算时间越长
+				})
+				return resp.status(200).json(challenge)
+			} catch (error) {
+				console.error('ALTCHA 挑战生成失败:', error)
+				return base.respFailure({ msg: '验证码服务不可用' })
+			}
+		},
 	},
 
 	post: {
@@ -45,29 +62,48 @@ const actions = {
 		 * 登录
 		 */
 		login: async ({ req, resp, body }) => {
-			const { username, password, turnstileToken } = body
+			const { username, password, altchaPayload, turnstileToken } = body
 
-			const invalids = base.checkValids(body, ['username', 'password', 'turnstileToken'])
+			const invalids = base.checkValids(body, ['username', 'password'])
 			if (invalids) {
 				return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
 			}
 
-			// Turnstile 验证
-			try {
-				const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/x-www-form-urlencoded',
-					},
-					body: `secret=${process.env.TURNSTILE_SECRET_KEY}&response=${turnstileToken}`,
-				})
-				const verifyOutcome = await verifyRes.json()
-				if (!verifyOutcome.success) {
-					return base.respFailure({ msg: '人机验证失败，请重试' })
+			// 优先使用 ALTCHA 验证
+			if (altchaPayload) {
+				try {
+					const { verifySolution } = await import('altcha-lib/v1')
+					const isValid = await verifySolution(altchaPayload, process.env.CRYPTO_SECRET || 'default-secret')
+					if (!isValid) {
+						return base.respFailure({ msg: '人机验证失败，请重试' })
+					}
+				} catch (err) {
+					console.error('ALTCHA 验证异常:', err)
+					return base.respFailure({ msg: '人机验证服务异常' })
 				}
-			} catch (err) {
-				console.error('Turnstile 验证异常:', err)
-				return base.respFailure({ msg: '人机验证服务异常' })
+			} 
+			// 兼容旧版的 Turnstile 验证 (备份)
+			else if (turnstileToken) {
+				try {
+					const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/x-www-form-urlencoded',
+						},
+						body: `secret=${process.env.TURNSTILE_SECRET_KEY}&response=${turnstileToken}`,
+					})
+					const verifyOutcome = await verifyRes.json()
+					if (!verifyOutcome.success) {
+						return base.respFailure({ msg: '人机验证失败，请重试' })
+					}
+				} catch (err) {
+					console.error('Turnstile 验证异常:', err)
+					return base.respFailure({ msg: '人机验证服务异常' })
+				}
+			} 
+			// 如果两个都没有传
+			else {
+				return base.respFailure({ msg: '请完成人机验证' })
 			}
 
 			let users = []

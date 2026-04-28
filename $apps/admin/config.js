@@ -5,5 +5,5 @@ window.$config = {
 	keepAlive: true, // 是否开启组件缓存
 	multiTabs: true, // 是否开启多标签页
 	loginStrict: true, // 是否强制登录
-	publicLayout: true, // 是否公开可见完整框架布局 (false 时仅 admin 可见, 未登录或其他用户仅能看见具体页面内容)
+	publicLayout: false, // 是否公开可见完整框架布局 (false 时仅 admin 可见, 未登录或其他用户仅能看见具体页面内容)
 }

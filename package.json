@@ -13,6 +13,7 @@
 	"dependencies": {
 		"@supabase/supabase-js": "^2.93.3",
 		"@vercel/node": "^2.15.1",
+		"altcha-lib": "^2.0.3",
 		"dayjs": "^1.11.13",
 		"express": "^4.21.2",
 		"jsonwebtoken": "^9.0.3",
