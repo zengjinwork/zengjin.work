@@ -6,7 +6,8 @@
 		"#*": "./*"
 	},
 	"scripts": {
-		"serve": "vercel dev --local-config vercel.json --listen 0.0.0.0:1232",
+		"serve": "node --env-file=.env server.dev.js",
+		"vercel-serve": "vercel dev --local-config vercel.json --listen 0.0.0.0:1232",
 		"preview": "node ./vite.preview.js"
 	},
 	"dependencies": {

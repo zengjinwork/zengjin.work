@@ -1,6 +1,27 @@
 import dayjs from 'dayjs'
+import { AsyncLocalStorage } from 'async_hooks'
 
-const base = {}
+const storage = new AsyncLocalStorage()
+
+const base = {
+	storage,
+	get req() {
+		return storage.getStore()?.req || this._req
+	},
+	set req(val) {
+		const store = storage.getStore()
+		if (store) store.req = val
+		else this._req = val
+	},
+	get resp() {
+		return storage.getStore()?.resp || this._resp
+	},
+	set resp(val) {
+		const store = storage.getStore()
+		if (store) store.resp = val
+		else this._resp = val
+	},
+}
 
 // // 设置CORS头
 // base.corsHeaders = {
@@ -13,7 +34,7 @@ const base = {}
 // 获取请求信息
 base.getReqInfo = () => {
 	let paths = new URL(`https://host${base.req.url}`).pathname.split('/').filter(Boolean)
-	
+
 	return {
 		method: base.req.method.toLowerCase(),
 		action: paths.pop() || '',

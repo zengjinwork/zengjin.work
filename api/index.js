@@ -11,7 +11,10 @@ import storageHandler from './_base/storage.js'
 import fileHandler from './_file.js'
 import docHandler from './_doc.js'
 
+import base from '#api_util/base.js'
+
 export default async function masterHandler(req, res) {
+	return base.storage.run({ req, resp: res }, async () => {
 	// 无论部署后还是 Vercel 本地 Dev，通过 vercel.json 的 rewrite 打过来的请求
 	// 其 req.url 保持原始状态，例如: "/api/zone/mzl/student/select?current=1"
 	const urlWithoutQuery = req.url.split('?')[0]
@@ -77,4 +80,5 @@ export default async function masterHandler(req, res) {
 	} catch (error) {
 		return res.status(500).json({ error: '网关路由分发环境崩溃', details: error.message })
 	}
+	})
 }
