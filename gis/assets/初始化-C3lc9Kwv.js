@@ -1,0 +1,1 @@
+import{M as o}from"./MapLeaflet-BtlATh-U.js";import{c as r,o as t}from"./index-DS2HV_eb.js";import"./leaflet-src-Dn__PT5I.js";const m={__name:"初始化",setup(a){return(e,c)=>(t(),r(o))}};export{m as default};

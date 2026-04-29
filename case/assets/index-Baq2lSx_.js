@@ -1,1 +1,0 @@
-import{_ as t,a4 as a,a5 as s,c as o,o as n,a as c,t as r,u as _}from"./index-DSMxqxW9.js";const u={__name:"index",setup(i){const e=$config.title;return a(),s(),(l,p)=>(n(),o("section",null,[c("h1",null,r(_(e)),1)]))}},d=t(u,[["__scopeId","data-v-bab642a3"]]);export{d as default};

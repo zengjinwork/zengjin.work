@@ -1,4 +1,8 @@
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc.js'
+import timezone from 'dayjs/plugin/timezone.js'
+dayjs.extend(utc)
+dayjs.extend(timezone)
 import { AsyncLocalStorage } from 'async_hooks'
 
 const storage = new AsyncLocalStorage()
@@ -63,8 +67,8 @@ base.getId = () => {
 	return id
 }
 
-// 生成格式化日期时间, 默认当前
-base.getTime = time => dayjs(time).format('YYYY-MM-DD HH:mm:ss')
+// 生成格式化日期时间 (强制北京时间 Asia/Shanghai), 默认当前
+base.getTime = time => dayjs(time).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')
 
 // // 格式化输出可执行的sql语句(mysql)
 // base.formatSql = (sql, binds) => {

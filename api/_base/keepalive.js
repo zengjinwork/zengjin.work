@@ -10,10 +10,10 @@ const joins = {}
 actions.get.supabase = async options => {
 	const { table, fields, valids, joins, query, body, action } = options
 
-	// 获取指定的 Supabase 连接池，无论当前主库是什么
+	// 获取指定的 supabase 连接池，无论当前主库是什么
 	const db = getPool('supabase')
 	if (!db) {
-		return base.respFailure({ msg: 'Supabase 数据库配置未找到' })
+		return base.respFailure({ msg: 'supabase数据库配置未找到' })
 	}
 
 	query.id = base.getId()

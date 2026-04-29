@@ -1,1 +1,0 @@
-import{_ as o,c as t,o as l,b as n}from"./index-Yx_tGuC_.js";const r={};function s(c,e){return l(),t("section",null,[...e[0]||(e[0]=[n("h1",null,"demo_3",-1),n("input",null,null,-1)])])}const u=o(r,[["render",s]]);export{u as default};
