@@ -43,10 +43,15 @@ const actions = {
 		 * 生成 ALTCHA 人机验证挑战
 		 */
 		challenge: async ({ req, resp }) => {
+			const hmacKey = process.env.CRYPTO_SECRET
+			if (!hmacKey) {
+				console.error('ALTCHA 配置错误: CRYPTO_SECRET 未设置')
+				return base.respFailure({ msg: '验证码服务配置错误' })
+			}
 			try {
 				const { createChallenge } = await import('altcha-lib/v1')
 				const challenge = await createChallenge({
-					hmacKey: process.env.CRYPTO_SECRET || 'default-secret',
+					hmacKey,
 					maxNumber: 100000, // 生成难度，越大计算时间越长
 				})
 				return resp.status(200).json(challenge)
@@ -71,9 +76,14 @@ const actions = {
 
 			// 优先使用 ALTCHA 验证
 			if (altchaPayload) {
+				const hmacKey = process.env.CRYPTO_SECRET
+				if (!hmacKey) {
+					console.error('ALTCHA 验证失败: CRYPTO_SECRET 未设置')
+					return base.respFailure({ msg: '服务器安全配置错误' })
+				}
 				try {
 					const { verifySolution } = await import('altcha-lib/v1')
-					const isValid = await verifySolution(altchaPayload, process.env.CRYPTO_SECRET || 'default-secret')
+					const isValid = await verifySolution(altchaPayload, hmacKey)
 					if (!isValid) {
 						return base.respFailure({ msg: '人机验证失败，请重试' })
 					}
@@ -81,7 +91,7 @@ const actions = {
 					console.error('ALTCHA 验证异常:', err)
 					return base.respFailure({ msg: '人机验证服务异常' })
 				}
-			} 
+			}
 			// 兼容旧版的 Turnstile 验证 (备份)
 			else if (turnstileToken) {
 				try {
@@ -100,7 +110,7 @@ const actions = {
 					console.error('Turnstile 验证异常:', err)
 					return base.respFailure({ msg: '人机验证服务异常' })
 				}
-			} 
+			}
 			// 如果两个都没有传
 			else {
 				return base.respFailure({ msg: '请完成人机验证' })
@@ -140,10 +150,13 @@ const actions = {
 			const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || ''
 
 			try {
-				await db.query(
-					'INSERT INTO base_user_session (user_id, refresh_token_hash, expires_at, user_agent, ip_address) VALUES ($1, $2, $3, $4, $5)',
-					[user.id, tokenHash, expiresAt.toISOString(), userAgent, ipAddress]
-				)
+				await db.query('INSERT INTO base_user_session (user_id, refresh_token_hash, expires_at, user_agent, ip_address) VALUES ($1, $2, $3, $4, $5)', [
+					user.id,
+					tokenHash,
+					expiresAt.toISOString(),
+					userAgent,
+					ipAddress,
+				])
 			} catch (err) {
 				console.error('保存 session 失败:', err)
 			}
@@ -206,7 +219,9 @@ const actions = {
 			let sessions = []
 			let queryError = null
 			try {
-				const result = await db.query('SELECT id, user_id, expires_at, revoked_at FROM base_user_session WHERE refresh_token_hash = $1 LIMIT 1', [tokenHash])
+				const result = await db.query('SELECT id, user_id, expires_at, revoked_at FROM base_user_session WHERE refresh_token_hash = $1 LIMIT 1', [
+					tokenHash,
+				])
 				sessions = result.rows
 			} catch (err) {
 				queryError = err
@@ -241,10 +256,13 @@ const actions = {
 
 			const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 			try {
-				await db.query(
-					'INSERT INTO base_user_session (user_id, refresh_token_hash, expires_at, user_agent, ip_address) VALUES ($1, $2, $3, $4, $5)',
-					[user.id, newTokenHash, expiresAt.toISOString(), req.headers['user-agent'] || '', req.headers['x-forwarded-for'] || req.socket.remoteAddress || '']
-				)
+				await db.query('INSERT INTO base_user_session (user_id, refresh_token_hash, expires_at, user_agent, ip_address) VALUES ($1, $2, $3, $4, $5)', [
+					user.id,
+					newTokenHash,
+					expiresAt.toISOString(),
+					req.headers['user-agent'] || '',
+					req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
+				])
 			} catch (err) {
 				console.error('保存 session 失败:', err)
 			}
