@@ -1,6 +1,6 @@
 import base from '#api_util/base.js'
 import curd from '#api_util/crud.js'
-import db from '#api_util/db.js'
+import { getPool } from '#api_util/db.js'
 const actions = { ...curd }
 
 const fields = 'id,target,createtime'.split(',')
@@ -9,6 +9,12 @@ const joins = {}
 
 actions.get.supabase = async options => {
 	const { table, fields, valids, joins, query, body, action } = options
+
+	// 获取指定的 Supabase 连接池，无论当前主库是什么
+	const db = getPool('supabase')
+	if (!db) {
+		return base.respFailure({ msg: 'Supabase 数据库配置未找到' })
+	}
 
 	query.id = base.getId()
 	query.createtime = base.getTime()
@@ -20,8 +26,11 @@ actions.get.supabase = async options => {
 	})
 
 	try {
-		// 插入记录（轻量化：无额外业务逻辑）
-		const resInsert = await db.query(`insert into ${table} (${fields.join(',')}) values (${fields.map((_, i) => `$${i + 1}`).join(',')}) returning id`, binds)
+		// 插入记录
+		const resInsert = await db.query(
+			`insert into ${table} (${fields.join(',')}) values (${fields.map((_, i) => `$${i + 1}`).join(',')}) returning id`,
+			binds,
+		)
 		if (!resInsert?.rowCount) {
 			throw new Error('插入返回为空')
 		}
