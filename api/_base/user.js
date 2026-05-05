@@ -40,6 +40,57 @@ const actions = {
 		}),
 
 		/**
+		 * 用户列表
+		 */
+		select: requireAuth(async ({ query }) => {
+			const page = Number(query.current || 1)
+			const size = Number(query.pageSize || 20)
+			const offset = (page - 1) * size
+
+			const wheres = []
+			const binds = []
+			if (query.username) {
+				binds.push(`%${query.username}%`)
+				wheres.push(`username ILIKE $${binds.length}`)
+			}
+			if (query.nickname) {
+				binds.push(`%${query.nickname}%`)
+				wheres.push(`nickname ILIKE $${binds.length}`)
+			}
+
+			const whereStr = wheres.length ? `WHERE ${wheres.join(' AND ')}` : ''
+			const sql = `SELECT id, username, phone, nickname, "status", "statusTime", "createTime", "updateTime" FROM base_user ${whereStr} ORDER BY "createTime" DESC LIMIT $${binds.length + 1} OFFSET $${binds.length + 2}`
+			const countSql = `SELECT count(*) as total FROM base_user ${whereStr}`
+
+			try {
+				const [res, countRes] = await Promise.all([db.query(sql, [...binds, size, offset]), db.query(countSql, binds)])
+				return base.respSuccess({
+					data: base.formatDbRows(res.rows),
+					total: Number(countRes.rows[0].total),
+				})
+			} catch (err) {
+				return base.respFailure({ msg: `查询失败: ${err.message}` })
+			}
+		}),
+
+		/**
+		 * 用户详情
+		 */
+		detail: requireAuth(async ({ query }) => {
+			if (!query.id) return base.respFailure({ msg: 'ID不能为空' })
+			try {
+				const res = await db.query(
+					'SELECT id, username, phone, nickname, "status", "statusTime", "createTime", "updateTime" FROM base_user WHERE id = $1',
+					[query.id],
+				)
+				if (res.rowCount === 0) return base.respFailure({ msg: '用户不存在' })
+				return base.respSuccess({ data: base.formatDbRows(res.rows)[0] })
+			} catch (err) {
+				return base.respFailure({ msg: `获取失败: ${err.message}` })
+			}
+		}),
+
+		/**
 		 * 生成 ALTCHA 人机验证挑战
 		 */
 		challenge: async ({ req, resp }) => {
@@ -119,7 +170,7 @@ const actions = {
 			let users = []
 			let queryError = null
 			try {
-				const result = await db.query('SELECT id, username, password, phone, nickname FROM base_user WHERE username = $1 LIMIT 1', [username])
+				const result = await db.query('SELECT id, username, password, phone, nickname, "status" FROM base_user WHERE username = $1 LIMIT 1', [username])
 				users = result.rows
 			} catch (err) {
 				queryError = err
@@ -130,6 +181,10 @@ const actions = {
 			}
 
 			const user = users[0]
+			if (user.status === 0) {
+				return base.respFailure({ msg: '该账号已被禁用，请联系管理员' })
+			}
+
 			let dbPassword
 			try {
 				dbPassword = decryptPassword(user.password)
@@ -150,13 +205,10 @@ const actions = {
 			const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || ''
 
 			try {
-				await db.query('INSERT INTO base_user_session (user_id, refresh_token_hash, expires_at, user_agent, ip_address) VALUES ($1, $2, $3, $4, $5)', [
-					user.id,
-					tokenHash,
-					expiresAt.toISOString(),
-					userAgent,
-					ipAddress,
-				])
+				await db.query(
+					'INSERT INTO base_user_session (user_id, "refreshTokenHash", "expireTime", "userAgent", "ipAddress") VALUES ($1, $2, $3, $4, $5)',
+					[user.id, tokenHash, expiresAt.toISOString(), userAgent, ipAddress],
+				)
 			} catch (err) {
 				console.error('保存 session 失败:', err)
 			}
@@ -193,7 +245,7 @@ const actions = {
 			if (refreshToken) {
 				const tokenHash = hashToken(refreshToken)
 				try {
-					await db.query('UPDATE base_user_session SET revoked_at = $1 WHERE refresh_token_hash = $2', [new Date().toISOString(), tokenHash])
+					await db.query('UPDATE base_user_session SET "revokeTime" = $1 WHERE "refreshTokenHash" = $2', [new Date().toISOString(), tokenHash])
 				} catch (err) {
 					console.error('更新 session 失败:', err)
 				}
@@ -219,7 +271,7 @@ const actions = {
 			let sessions = []
 			let queryError = null
 			try {
-				const result = await db.query('SELECT id, user_id, expires_at, revoked_at FROM base_user_session WHERE refresh_token_hash = $1 LIMIT 1', [
+				const result = await db.query('SELECT id, user_id, "expireTime", "revokeTime" FROM base_user_session WHERE "refreshTokenHash" = $1 LIMIT 1', [
 					tokenHash,
 				])
 				sessions = result.rows
@@ -227,7 +279,7 @@ const actions = {
 				queryError = err
 			}
 
-			if (queryError || !sessions || sessions.length === 0 || sessions[0].revoked_at || new Date(sessions[0].expires_at) < new Date()) {
+			if (queryError || !sessions || sessions.length === 0 || sessions[0].revokeTime || new Date(sessions[0].expireTime) < new Date()) {
 				return resp.status(401).json({ code: -1, msg: '刷新令牌无效或已过期' })
 			}
 
@@ -245,7 +297,7 @@ const actions = {
 
 			const user = users[0]
 			try {
-				await db.query('UPDATE base_user_session SET revoked_at = $1 WHERE id = $2', [new Date().toISOString(), session.id])
+				await db.query('UPDATE base_user_session SET "revokeTime" = $1 WHERE id = $2', [new Date().toISOString(), session.id])
 			} catch (err) {
 				console.error('更新 session 失败:', err)
 			}
@@ -256,13 +308,16 @@ const actions = {
 
 			const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 			try {
-				await db.query('INSERT INTO base_user_session (user_id, refresh_token_hash, expires_at, user_agent, ip_address) VALUES ($1, $2, $3, $4, $5)', [
-					user.id,
-					newTokenHash,
-					expiresAt.toISOString(),
-					req.headers['user-agent'] || '',
-					req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
-				])
+				await db.query(
+					'INSERT INTO base_user_session (user_id, "refreshTokenHash", "expireTime", "userAgent", "ipAddress") VALUES ($1, $2, $3, $4, $5)',
+					[
+						user.id,
+						newTokenHash,
+						expiresAt.toISOString(),
+						req.headers['user-agent'] || '',
+						req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
+					],
+				)
 			} catch (err) {
 				console.error('保存 session 失败:', err)
 			}
@@ -334,12 +389,128 @@ const actions = {
 
 			// 修改成功后作废该用户所有的 Session
 			try {
-				await db.query('UPDATE base_user_session SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL', [new Date().toISOString(), userId])
+				await db.query('UPDATE base_user_session SET "revokeTime" = $1 WHERE user_id = $2 AND "revokeTime" IS NULL', [new Date().toISOString(), userId])
 			} catch (err) {
 				console.error('作废 session 失败:', err)
 			}
 
 			return base.respSuccess({ msg: '密码修改成功' })
+		}),
+
+		/**
+		 * 新增用户
+		 */
+		insert: requireAuth(async ({ body }) => {
+			const { username, password, nickname, phone, status = 1 } = body
+			if (!username || !password) return base.respFailure({ msg: '用户名和密码不能为空' })
+
+			try {
+				// 检查重复
+				const check = await db.query('SELECT id FROM base_user WHERE username = $1', [username])
+				if (check.rowCount > 0) return base.respFailure({ msg: '用户名已存在' })
+
+				const id = base.getId()
+				const createTime = base.getTime()
+				const encryptedPassword = encryptPassword(password)
+
+				await db.query('INSERT INTO base_user (id, username, password, nickname, phone, "status", "createTime") VALUES ($1, $2, $3, $4, $5, $6, $7)', [
+					id,
+					username,
+					encryptedPassword,
+					nickname || '',
+					phone || '',
+					status,
+					createTime,
+				])
+				return base.respSuccess({ msg: '新增成功', data: id })
+			} catch (err) {
+				return base.respFailure({ msg: `新增失败: ${err.message}` })
+			}
+		}),
+
+		/**
+		 * 修改用户
+		 */
+		update: requireAuth(async ({ body }) => {
+			const { id, username, password, nickname, phone, status } = body
+			if (!id) return base.respFailure({ msg: 'ID不能为空' })
+
+			try {
+				// 防护：防止将系统管理员 admin 改名或禁用
+				if (username && username !== 'admin') {
+					const checkAdmin = await db.query('SELECT username FROM base_user WHERE id = $1', [id])
+					if (checkAdmin.rows.length && checkAdmin.rows[0].username === 'admin') {
+						return base.respFailure({ msg: '系统内置管理员(admin)不允许修改用户名' })
+					}
+				}
+				if (status === 0) {
+					const checkAdmin = await db.query('SELECT username FROM base_user WHERE id = $1', [id])
+					if (checkAdmin.rows.length && checkAdmin.rows[0].username === 'admin') {
+						return base.respFailure({ msg: '系统内置管理员(admin)不允许被禁用' })
+					}
+				}
+
+				const fields = []
+				const binds = []
+
+				if (username) {
+					binds.push(username)
+					fields.push(`username = $${binds.length}`)
+				}
+				if (password) {
+					binds.push(encryptPassword(password))
+					fields.push(`password = $${binds.length}`)
+				}
+				if (nickname !== undefined) {
+					binds.push(nickname)
+					fields.push(`nickname = $${binds.length}`)
+				}
+				if (phone !== undefined) {
+					binds.push(phone)
+					fields.push(`phone = $${binds.length}`)
+				}
+				if (status !== undefined) {
+					binds.push(status)
+					fields.push(`"status" = $${binds.length}`)
+
+					binds.push(base.getTime())
+					fields.push(`"statusTime" = $${binds.length}`)
+				}
+
+				binds.push(base.getTime())
+				fields.push(`"updateTime" = $${binds.length}`)
+
+				if (fields.length === 1) return base.respFailure({ msg: '没有需要更新的内容' })
+
+				binds.push(id)
+				const sql = `UPDATE base_user SET ${fields.join(', ')} WHERE id = $${binds.length}`
+				await db.query(sql, binds)
+				return base.respSuccess({ msg: '更新成功' })
+			} catch (err) {
+				return base.respFailure({ msg: `更新失败: ${err.message}` })
+			}
+		}),
+
+		/**
+		 * 删除用户
+		 */
+		delete: requireAuth(async ({ body }) => {
+			const { id } = body
+			if (!id) return base.respFailure({ msg: 'ID不能为空' })
+			const ids = id.toString().split(',')
+
+			try {
+				// 防护：防止删除系统管理员 admin
+				const checkAdmin = await db.query(`SELECT username FROM base_user WHERE id IN (${ids.map((_, i) => `$${i + 1}`).join(',')})`, ids)
+				if (checkAdmin.rows.some(row => row.username === 'admin')) {
+					return base.respFailure({ msg: '系统内置管理员(admin)不允许被删除' })
+				}
+
+				await db.query(`DELETE FROM base_user WHERE id IN (${ids.map((_, i) => `$${i + 1}`).join(',')})`, ids)
+				return base.respSuccess({ msg: '删除成功' })
+			} catch (err) {
+				return base.respFailure({ msg: `删除失败: ${err.message}` })
+			}
 		}),
 	},
 }
