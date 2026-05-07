@@ -1,0 +1,1 @@
+var a=/^ArrowDown$/i,E=/^ArrowUp$/i,R=/^ArrowLeft$/i,r=/^ArrowRight$/i,i=/^Escape$/i,_=/^Space$/i,A=/^Enter$/i,e=/^(Shift|ShiftLeft|ShiftRight)$/i,s=/^KeyC$/i,G=/^(KeyA|KeyL)$/i,v=/^(Enter|Space)$/i;export{a as A,v as C,i as E,_ as S,E as a,e as b,s as c,G as d,R as e,r as f,A as g};
