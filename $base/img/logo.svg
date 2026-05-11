@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 510 510">
+  <defs>
+    <style>
+      g * {
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 55px;
+        transition: all 0.3s;
+      }
+    </style>
+  </defs>
+  <g transform="translate(10.2, 10.2) scale(0.96)">
+    <polygon points="255 15 15 135 255 255 495 135 255 15"/>
+    <polyline points="495 135 255 495 15 375 135 195"/>
+    <polyline points="375 315 495 375 255 495"/>
+  </g>
+</svg>
