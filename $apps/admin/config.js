@@ -1,7 +1,7 @@
 window.$config = {
 	...window.$config,
 	app: 'admin', // 应用唯一标识
-	title: '后台管理系统', // 浏览器标题
+	title: '增进工坊管理后台', // 浏览器标题
 	keepAlive: true, // 是否开启组件缓存
 	multiTabs: true, // 是否开启多标签页
 	loginStrict: true, // 是否强制登录

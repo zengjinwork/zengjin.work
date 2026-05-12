@@ -1,1 +1,0 @@
-import{_ as t,x as s,y as a,d as o,o as n,f as c,t as r,u as _}from"./index-DS2HV_eb.js";const u={__name:"index",setup(i){const e=$config.title;return s(),a(),(l,p)=>(n(),o("section",null,[c("h1",null,r(_(e)),1)]))}},d=t(u,[["__scopeId","data-v-bab642a3"]]);export{d as default};

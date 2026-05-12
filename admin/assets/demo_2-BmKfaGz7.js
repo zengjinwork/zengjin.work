@@ -1,1 +1,0 @@
-import{c as s,o as l,b as t,t as r}from"./index-B9Q1ufmJ.js";const u={__name:"demo_2",props:["h1"],setup(o){const n=o;return(a,e)=>(l(),s("section",null,[t("h1",null,r(n.h1||"demo_2"),1),e[0]||(e[0]=t("input",null,null,-1))]))}};export{u as default};

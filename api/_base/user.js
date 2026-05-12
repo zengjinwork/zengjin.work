@@ -57,6 +57,43 @@ const actions = {
 				binds.push(`%${query.nickname}%`)
 				wheres.push(`nickname ILIKE $${binds.length}`)
 			}
+			if (query.status) {
+				binds.push(query.status)
+				wheres.push(`"status" = $${binds.length}`)
+			}
+
+			// 创建日期范围筛选
+			if (query.createTimeStart) {
+				binds.push(`${query.createTimeStart} 00:00:00`)
+				wheres.push(`"createTime" >= $${binds.length}`)
+			}
+			if (query.createTimeEnd) {
+				binds.push(`${query.createTimeEnd} 23:59:59`)
+				wheres.push(`"createTime" <= $${binds.length}`)
+			}
+
+			// 在线状态筛选逻辑
+			if (query.isOnline !== undefined && query.isOnline !== '') {
+				const isOnline = Number(query.isOnline)
+				// onlineIds 预期为以逗号分隔的字符串或数组
+				const onlineIds = (Array.isArray(query.onlineIds) ? query.onlineIds : (query.onlineIds || '').split(',')).filter(Boolean).map(Number)
+				
+				if (isOnline === 1) {
+					// 仅查询在线用户：如果当前没人在线，直接返回空，否则使用 ANY
+					if (onlineIds.length === 0) {
+						wheres.push('1 = 0') 
+					} else {
+						binds.push(onlineIds)
+						wheres.push(`id = ANY($${binds.length})`)
+					}
+				} else if (isOnline === 0) {
+					// 仅查询离线用户：如果有人在线，使用 NOT ANY
+					if (onlineIds.length > 0) {
+						binds.push(onlineIds)
+						wheres.push(`NOT (id = ANY($${binds.length}))`)
+					}
+				}
+			}
 
 			const whereStr = wheres.length ? `WHERE ${wheres.join(' AND ')}` : ''
 			const sql = `SELECT id, username, phone, nickname, "status", "statusTime", "createTime", "updateTime" FROM base_user ${whereStr} ORDER BY "createTime" DESC LIMIT $${binds.length + 1} OFFSET $${binds.length + 2}`
