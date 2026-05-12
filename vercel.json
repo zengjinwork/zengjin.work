@@ -35,16 +35,13 @@
 			"source": "/:path*",
 			"destination": "https://zengjin.work/api/:path*"
 		},
-		{
-			"source": "/api/:path*",
-			"destination": "/api/index.js"
-		},
-		{
-			"source": "/",
-			"destination": "/index"
-		},
+		{ "source": "/api/:path*", "destination": "/api/index.js" },
+		{ "source": "/", "destination": "/index" },
 
-		{ "source": "/admin/:path*", "destination": "/admin/index.html" }
+		{ "source": "/admin/:path*", "destination": "/admin/index.html" },
+		{ "source": "/case/:path*", "destination": "/case/index.html" },
+		{ "source": "/gis/:path*", "destination": "/gis/index.html" },
+		{ "source": "/wired/:path*", "destination": "/wired/index.html" }
 	],
 	"crons": [
 		{
