@@ -73,6 +73,20 @@ export default [
 		layer: 'vec',
 	},
 	{
+		name: '矢量-开放街图',
+		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/gaode_vec.png',
+		type: 'xyz',
+		url: `https://tile.openstreetmap.org/{z}/{x}/{y}.png`,
+	},
+	{
+		name: '矢量-开放街图-自行车',
+		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/gaode_vec.png',
+		type: 'xyz',
+		url: `https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png`,
+		subdomains: 'abc',
+		divider: true,
+	},
+	{
 		name: '矢量底图-微软',
 		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/gaode_vec.png',
 		type: 'xyz',
@@ -96,7 +110,7 @@ export default [
 				layer: 'img_z',
 			},
 		],
-		show: true,
+		// show: true, // 注意：启用此项会覆盖默认底图，高德注记层在部分环境下返回非法响应会导致 Cesium 崩溃
 	},
 	{
 		name: '卫星-高德',
