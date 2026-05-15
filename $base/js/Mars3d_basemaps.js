@@ -110,7 +110,7 @@ export default [
 				layer: 'img_z',
 			},
 		],
-		// show: true, // 注意：启用此项会覆盖默认底图，高德注记层在部分环境下返回非法响应会导致 Cesium 崩溃
+		show: true,
 	},
 	{
 		name: '卫星-高德',
