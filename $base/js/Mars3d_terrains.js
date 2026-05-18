@@ -5,6 +5,7 @@ export default [
 		type: 'tdt',
 		subdomains: '01234567',
 		key: $config.map_tdt_key,
+		show: true,
 	},
 	{
 		name: 'Mars3d',
@@ -14,7 +15,6 @@ export default [
 		name: 'ArcGIS',
 		url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
 		type: 'arcgis',
-		divider: true,
 	},
 	{
 		name: '无地形',

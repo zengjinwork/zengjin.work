@@ -18,25 +18,25 @@ export default [
 			},
 		],
 	},
-	{
-		name: '矢量-天地图url',
-		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/tdt_img.png',
-		type: 'group',
-		layers: [
-			{
-				name: '底图',
-				type: 'xyz',
-				url: `https://t{s}.tianditu.gov.cn/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${$config.map_tdt_key}`,
-				subdomains: '01234567',
-			},
-			{
-				name: '注记',
-				type: 'xyz',
-				url: `https://t{s}.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${$config.map_tdt_key}`,
-				subdomains: '01234567',
-			},
-		],
-	},
+	// {
+	// 	name: '矢量-天地图url',
+	// 	icon: 'https://data.mars3d.cn/img/thumbnail/basemap/tdt_img.png',
+	// 	type: 'group',
+	// 	layers: [
+	// 		{
+	// 			name: '底图',
+	// 			type: 'xyz',
+	// 			url: `https://t{s}.tianditu.gov.cn/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${$config.map_tdt_key}`,
+	// 			subdomains: '01234567',
+	// 		},
+	// 		{
+	// 			name: '注记',
+	// 			type: 'xyz',
+	// 			url: `https://t{s}.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${$config.map_tdt_key}`,
+	// 			subdomains: '01234567',
+	// 		},
+	// 	],
+	// },
 	{
 		name: '矢量-高德精简',
 		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/gaode_vec.png',
@@ -79,7 +79,7 @@ export default [
 		url: `https://tile.openstreetmap.org/{z}/{x}/{y}.png`,
 	},
 	{
-		name: '矢量-开放街图-自行车',
+		name: '矢量-开放街图-等高线',
 		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/gaode_vec.png',
 		type: 'xyz',
 		url: `https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png`,
@@ -94,7 +94,7 @@ export default [
 		divider: true,
 	},
 	{
-		name: '卫星-天地图+高德',
+		name: '卫星-天地图-高德注记',
 		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/tdt_img.png',
 		type: 'group',
 		layers: [
@@ -103,54 +103,17 @@ export default [
 				type: 'tdt',
 				layer: 'img_d',
 				key: $config.map_tdt_key,
+				contrast: 1.2, // 对比度
+				gamma: 1.2, // 伽马值
 			},
 			{
 				name: '注记',
 				type: 'gaode',
 				layer: 'img_z',
+				// contrast: 1.2, // 对比度
 			},
 		],
-		show: true,
-	},
-	{
-		name: '卫星-高德',
-		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/gaode_img.png',
-		type: 'group',
-		layers: [
-			{
-				name: '底图',
-				type: 'gaode',
-				layer: 'img_d',
-			},
-			{
-				name: '注记',
-				type: 'gaode',
-				layer: 'img_z',
-			},
-		],
-	},
-	{
-		name: '卫星-高德url',
-		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/gaode_img.png',
-		type: 'group',
-		layers: [
-			{
-				name: '底图',
-				type: 'xyz',
-				url: 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
-				subdomains: '1234',
-				chinaCRS: 'GCJ02',
-				maximumLevel: 18,
-			},
-			{
-				name: '注记',
-				type: 'xyz',
-				url: 'https://webst0{s}.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}',
-				subdomains: '1234',
-				chinaCRS: 'GCJ02',
-				maximumLevel: 18,
-			},
-		],
+		// show: true,
 	},
 	{
 		name: '卫星-天地图',
@@ -174,47 +137,71 @@ export default [
 			},
 		],
 	},
-	{
-		name: '卫星-天地图url',
-		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/tdt_img.png',
-		type: 'group',
-		layers: [
-			{
-				name: '底图',
-				type: 'xyz',
-				url: `https://t{s}.tianditu.gov.cn/img_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=img&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${$config.map_tdt_key}`,
-				subdomains: '01234567',
-				contrast: 1.5, // 对比度
-				gamma: 1.2, // 伽马值
-				maximumLevel: 18,
-			},
-			{
-				name: '注记',
-				type: 'xyz',
-				url: `https://t{s}.tianditu.gov.cn/cia_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cia&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${$config.map_tdt_key}`,
-				subdomains: '01234567',
-				contrast: 1.5, // 对比度
-				maximumLevel: 18,
-			},
-		],
-	},
 	// {
-	// 	name: '卫星-百度',
-	// 	icon: 'https://data.mars3d.cn/img/thumbnail/basemap/bd_img.png',
+	// 	name: '卫星-天地图url',
+	// 	icon: 'https://data.mars3d.cn/img/thumbnail/basemap/tdt_img.png',
 	// 	type: 'group',
 	// 	layers: [
 	// 		{
 	// 			name: '底图',
-	// 			type: 'baidu',
-	// 			layer: 'img_d',
+	// 			type: 'xyz',
+	// 			url: `https://t{s}.tianditu.gov.cn/img_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=img&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${$config.map_tdt_key}`,
+	// 			subdomains: '01234567',
+	// 			contrast: 1.5, // 对比度
+	// 			gamma: 1.2, // 伽马值
+	// 			maximumLevel: 18,
 	// 		},
 	// 		{
 	// 			name: '注记',
-	// 			type: 'baidu',
-	// 			layer: 'img_z',
+	// 			type: 'xyz',
+	// 			url: `https://t{s}.tianditu.gov.cn/cia_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cia&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${$config.map_tdt_key}`,
+	// 			subdomains: '01234567',
+	// 			contrast: 1.5, // 对比度
+	// 			maximumLevel: 18,
 	// 		},
 	// 	],
 	// },
+	{
+		name: '卫星-高德',
+		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/gaode_img.png',
+		type: 'group',
+		layers: [
+			{
+				name: '底图',
+				type: 'gaode',
+				layer: 'img_d',
+			},
+			{
+				name: '注记',
+				type: 'gaode',
+				layer: 'img_z',
+			},
+		],
+	},
+	// {
+	// 	name: '卫星-高德url',
+	// 	icon: 'https://data.mars3d.cn/img/thumbnail/basemap/gaode_img.png',
+	// 	type: 'group',
+	// 	layers: [
+	// 		{
+	// 			name: '底图',
+	// 			type: 'xyz',
+	// 			url: 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+	// 			subdomains: '1234',
+	// 			chinaCRS: 'GCJ02',
+	// 			maximumLevel: 18,
+	// 		},
+	// 		{
+	// 			name: '注记',
+	// 			type: 'xyz',
+	// 			url: 'https://webst0{s}.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}',
+	// 			subdomains: '1234',
+	// 			chinaCRS: 'GCJ02',
+	// 			maximumLevel: 18,
+	// 		},
+	// 	],
+	// },
+
 	{
 		name: '卫星-腾讯',
 		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/tencent_img.png',
@@ -258,9 +245,25 @@ export default [
 	{
 		name: '卫星-谷歌',
 		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/google_img.png',
+		type: 'group',
+		layers: [
+			{
+				name: '底图',
+				type: 'google',
+				layer: 'img_d',
+			},
+			{
+				name: '注记',
+				type: 'google',
+				layer: 'img_z',
+			},
+		],
+	},
+	{
+		name: '卫星-谷歌url',
+		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/google_img.png',
 		type: 'google',
-		layer: 'img_d', //等同于与下一句url
-		// url: 'https://gac-geo.googlecnapps.club/maps/vt?lyrs=y&x={x}&y={y}&z={z}', // lys参数可选值包括：h（街道图）、m（街道图）、p（街道图）、r（街道图）、s（影像无注记）、y（影像含注记）、t（地形图）
+		url: 'https://gac-geo.googlecnapps.club/maps/vt?lyrs=y&x={x}&y={y}&z={z}', // lys参数可选值包括：h（街道图）、m（街道图）、p（街道图）、r（街道图）、s（影像无注记）、y（影像含注记）、t（地形图）
 	},
 	{
 		name: '卫星底图-谷歌',
@@ -269,12 +272,6 @@ export default [
 		layer: 'img_d', //等同于与下一句url
 		// url: 'https://gac-geo.googlecnapps.club/maps/vt?lyrs=s&x={x}&y={y}&z={z}',
 	},
-	// {
-	// 	name: '卫星底图-谷歌镜像',
-	// 	icon: 'https://data.mars3d.cn/img/thumbnail/basemap/google_img.png',
-	// 	type: 'google',
-	// 	url: 'https://cbk.8ditu.com/maps/vt?lyrs=s&x={x}&y={y}&z={z}',
-	// },
 	{
 		name: '卫星底图-ArcGIS',
 		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/gaode_vec.png',
@@ -311,13 +308,6 @@ export default [
 		divider: true,
 	},
 
-	// {
-	// 	name: '卫星注记-谷歌',
-	// 	icon: 'https://data.mars3d.cn/img/thumbnail/basemap/google_img.png',
-	// 	type: 'google',
-	// 	url: 'https://gac-geo.googlecnapps.club/maps/vt?lyrs=h&v=982&gl=cn&x={x}&y={y}&z={z}',
-	// 	divider: true,
-	// },
 	{
 		name: '地形-天地图',
 		icon: 'https://data.mars3d.cn/img/thumbnail/basemap/tdt_ter.png',
