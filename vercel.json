@@ -20,7 +20,7 @@
 			]
 		}
 	],
-	"routes": [{ "src": "/(.*)", "status": 404, "dest": "/404/index.html" }],
+
 	"redirects": [
 		{
 			"source": "/index",
@@ -43,7 +43,9 @@
 		{ "source": "/admin/:path*", "destination": "/admin/index.html" },
 		{ "source": "/case/:path*", "destination": "/case/index.html" },
 		{ "source": "/gis/:path*", "destination": "/gis/index.html" },
-		{ "source": "/wired/:path*", "destination": "/wired/index.html" }
+		{ "source": "/wired/:path*", "destination": "/wired/index.html" },
+
+		{ "source": "/:path*", "destination": "/404/index.html" }
 	],
 	"crons": [
 		{
