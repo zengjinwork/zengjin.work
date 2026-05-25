@@ -40,7 +40,8 @@
 		{ "source": "/api/:path*", "destination": "/api/index.js" },
 		{ "source": "/", "destination": "/apps/index/index.html" },
 
-		{ "source": "/:app/:path*", "destination": "/apps/:app/:path*" },
+		{ "source": "/:app/assets/:path*", "destination": "/apps/:app/assets/:path*" },
+		{ "source": "/:app/:path*", "destination": "/apps/:app/index.html" },
 
 		{ "source": "/:path*", "destination": "/apps/404/index.html" }
 	],
