@@ -20,6 +20,7 @@
 			]
 		}
 	],
+	"routes": [{ "src": "/(.*)", "status": 404, "dest": "/404/index.html" }],
 	"redirects": [
 		{
 			"source": "/index",
