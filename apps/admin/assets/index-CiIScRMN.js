@@ -1,0 +1,1 @@
+import{_ as t,c as a,d as n,f as s}from"./index-DJEV8DYL.js";const o=Object.assign({name:Math.random().toString(36).slice(2)},{__name:"index",setup(r){return(c,e)=>(n(),a("section",null,[...e[0]||(e[0]=[s("h1",null,"系统状态",-1)])]))}}),d=t(o,[["__scopeId","data-v-da8509b3"]]);export{d as default};

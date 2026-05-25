@@ -1,0 +1,1 @@
+import{_ as o,c as t,d as l,f as n}from"./index-DJEV8DYL.js";const r={};function s(c,e){return l(),t("section",null,[...e[0]||(e[0]=[n("h1",null,"demo_4-3",-1),n("input",null,null,-1)])])}const _=o(r,[["render",s]]);export{_ as default};

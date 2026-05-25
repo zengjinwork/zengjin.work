@@ -1,1 +1,0 @@
-import{_ as t,Q as s,D as a,c as o,o as n,b as c,t as r,u as _}from"./index-BIYVA1F-.js";const u={__name:"index",setup(i){const e=$config.title;return s(),a(),(l,p)=>(n(),o("section",null,[c("h1",null,r(_(e)),1)]))}},d=t(u,[["__scopeId","data-v-bab642a3"]]);export{d as default};

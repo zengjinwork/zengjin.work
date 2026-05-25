@@ -1,0 +1,1 @@
+import{_ as t,u as s,h as a,c as o,d as c,f as n,t as r,g as _}from"./index-DJEV8DYL.js";const u={__name:"index",setup(i){const e=$config.title;return s(),a(),(l,p)=>(c(),o("section",null,[n("h1",null,r(_(e)),1)]))}},d=t(u,[["__scopeId","data-v-358408c7"]]);export{d as default};

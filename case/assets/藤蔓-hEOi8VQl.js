@@ -1,1 +1,0 @@
-import{_ as a,r as s,d as t,e as o,c as r,o as c,a as n}from"./index-BD1jhcBx.js";const _={__name:"藤蔓",setup(p){return s({}),t(),o(()=>{}),(l,e)=>(c(),r("section",null,[...e[0]||(e[0]=[n("iframe",{src:"/$apps/case/动画效果/藤蔓/"},null,-1)])]))}},u=a(_,[["__scopeId","data-v-5128f2e0"]]);export{u as default};

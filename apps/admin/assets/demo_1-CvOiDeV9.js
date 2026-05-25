@@ -1,0 +1,1 @@
+import{c as t,d as o,f as n}from"./index-DJEV8DYL.js";const r=Object.assign({name:"demo1"},{__name:"demo_1",setup(l){return(s,e)=>(o(),t("section",null,[...e[0]||(e[0]=[n("h1",null,"demo_1",-1),n("input",null,null,-1)])]))}});export{r as default};
