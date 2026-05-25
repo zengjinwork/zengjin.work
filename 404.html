@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - 页面未找到 | 增进工坊</title>
+    <!-- 引入 Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入 Outfit 现代字体 -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
+    <!-- =======================================
+       DRY 样式复用：在部署的根目录下加载静态样式
+       ======================================= -->
+    <link rel="stylesheet" href="/error404.css">
+</head>
+<body>
+    <div class="Error404">
+        <div class="ambientGlow"></div>
+        <div class="ambientGlowSecond"></div>
+
+        <div class="errorContainer cardMain">
+            <div class="errorCode textCode">404</div>
+            <div class="iconWrapper iconBox">
+                <i class="fa-regular fa-compass iconCompass"></i>
+            </div>
+            <!-- 按照用户需求：文案改得客观大方，去掉中二感 -->
+            <h2 class="errorTitle textTitle">页面未找到</h2>
+            <p class="errorDesc textDesc">您访问的链接可能已失效、被删除，或输入的地址有误。请检查后重试。</p>
+            
+            <!-- 按照用户需求：按钮中文改得更加得体与合适 -->
+            <a href="/" class="btnReturn" id="btnReturnRef">前往首页</a>
+
+            <!-- 按照用户需求：不需要自动跳转，先注释掉，不要删除 -->
+            <!-- 
+            <div class="countdownTip tipCount">
+                将在<span class="secHighlight numCount" id="secRemainRef">5</span>秒后为您自动返回首页
+            </div>
+            -->
+        </div>
+    </div>
+
+    <script>
+        // 自动适配持久化主题：读取 Pinia _user 持久化数据
+        try {
+            const userStore = JSON.parse(localStorage.getItem('_user'));
+            const container = document.querySelector('.Error404');
+            if (userStore && userStore.theme === 'dark' && container) {
+                container.classList.add('dark');
+                document.body.classList.add('dark');
+            }
+        } catch (e) {
+            console.error('Failed to read theme:', e);
+        }
+
+        // 动态优化浏览器标题栏名称：使用前置 [404] 模式并加入半角空格，方便在标签页极度拥挤被截断时依然优先可见状态且有呼吸感
+        try {
+            const pathSegments = window.location.pathname.split('/').filter(Boolean);
+            const lastSegment = decodeURIComponent(pathSegments[pathSegments.length - 1] || '404');
+            document.title = `[404] ${lastSegment} | 增进工坊`;
+        } catch (e) {
+            console.error('Failed to set dynamic title:', e);
+        }
+
+        // 严格遵循用户变量规范
+        const state = {
+            main: {
+                secRemain: 5
+            }
+        };
+
+        const btnReturnRef = document.getElementById('btnReturnRef');
+
+        // 定时器名词+Interval后缀规范
+        let countdownInterval = null;
+
+        const return_home = () => {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+            window.location.href = '/';
+        };
+
+        // 绑定按钮事件
+        btnReturnRef.addEventListener('click', (e) => {
+            e.preventDefault();
+            return_home();
+        });
+
+        // 按照用户需求：不需要自动跳转，先注释掉，不要删除
+        /*
+        countdownInterval = setInterval(() => {
+            state.main.secRemain--;
+            const secRemainRef = document.getElementById('secRemainRef');
+            if (secRemainRef) {
+                secRemainRef.textContent = state.main.secRemain;
+            }
+            if (state.main.secRemain <= 0) {
+                return_home();
+            }
+        }, 1000);
+        */
+    </script>
+</body>
+</html>
