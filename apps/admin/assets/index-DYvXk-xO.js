@@ -1,0 +1,1 @@
+import{_ as t,f as l,g as o,l as n}from"./index-DOVWluvz.js";const r={};function s(c,e){return o(),l("section",null,[...e[0]||(e[0]=[n("h1",null,"demo_3",-1),n("input",null,null,-1)])])}const u=t(r,[["render",s]]);export{u as default};
