@@ -1,0 +1,1 @@
+import{f as l,g as s,l as t,t as r}from"./index-CWLVkVMP.js";const u={__name:"demo_2",props:["h1"],setup(n){const o=n;return(a,e)=>(s(),l("section",null,[t("h1",null,r(o.h1||"demo_2"),1),e[0]||(e[0]=t("input",null,null,-1))]))}};export{u as default};
