@@ -1,0 +1,1 @@
+import{r as s,o as n,e as r,f as t,l}from"./index-BhGvk3MU.js";const a={class:"Monitor"},c=["src"],_={__name:"Monitor",props:{url:{type:String,default:""}},setup(o){const e=o;return s(""),n(()=>{}),(u,i)=>(t(),r("div",a,[e.url?(t(),r("iframe",{key:0,src:`plugin/JnWebPlayer/play_url.html?url=${e.url}`},null,8,c)):l("v-if",!0)]))}};export{_ as default};

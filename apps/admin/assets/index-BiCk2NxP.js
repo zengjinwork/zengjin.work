@@ -1,0 +1,1 @@
+import{_ as t,e as o,f as l,k as n}from"./index-BhGvk3MU.js";const r={};function s(c,e){return l(),o("section",null,[...e[0]||(e[0]=[n("h1",null,"demo_3",-1),n("input",null,null,-1)])])}const u=t(r,[["render",s]]);export{u as default};
