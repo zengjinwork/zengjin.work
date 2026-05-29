@@ -1,0 +1,1 @@
+import{Cr as e,Sr as t,Vr as n,Wr as r,oi as i}from"./index-B5NU7sqD.js";var a={class:`Monitor`},o=[`src`],s={__name:`Monitor`,props:{url:{type:String,default:``}},setup(s){let c=s;return i(``),n(()=>{}),(n,i)=>(r(),e(`div`,a,[c.url?(r(),e(`iframe`,{key:0,src:`plugin/JnWebPlayer/play_url.html?url=${c.url}`},null,8,o)):t(`v-if`,!0)]))}};export{s as default};
