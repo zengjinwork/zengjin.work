@@ -1,0 +1,1 @@
+import{_ as t,u as s,a,f as o,g as n,l as c,t as r,k as _}from"./index-CWLVkVMP.js";const l={__name:"index",setup(u){const e=$config.title;return s(),a(),(i,p)=>(n(),o("section",null,[c("h1",null,r(_(e)),1)]))}},d=t(l,[["__scopeId","data-v-358408c7"]]);export{d as default};
