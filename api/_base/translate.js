@@ -6,13 +6,13 @@ const actions = {
 	post: {},
 }
 
-// 查询
-actions.post.tencent = async options => {
-	const { query, body } = options
+// 翻译接口 (GET)
+actions.get.translate = async options => {
+	const { query } = options
 
-	// console.log(body.text, Array.isArray(body.text), typeof body.text == 'string')
+	const rawText = query.text || query['text[]']
 
-	if (!body.text || !(Array.isArray(body.text) || typeof body.text == 'string')) {
+	if (!rawText) {
 		return base.respFailure({
 			msg: '必要参数缺失',
 		})
@@ -39,13 +39,14 @@ actions.post.tencent = async options => {
 	// 实例化要请求产品的client对象,clientProfile是可选的
 	const client = new TmtClient(clientConfig)
 
+	const textList = Array.isArray(rawText) ? rawText : [rawText]
+
 	const params = {
 		ProjectId: +process.env.TENCENTCLOUD_PROJECT_ID,
-		Source: body.source || 'auto',
-		Target: body.target || 'zh',
-		SourceTextList: Array.isArray(body.text) ? body.text : [body.text],
+		Source: query.source || 'auto',
+		Target: query.target || 'zh',
+		SourceTextList: textList,
 	}
-	// console.log(11111111, params)
 
 	// 使用await等待翻译结果
 	try {
@@ -55,7 +56,7 @@ actions.post.tencent = async options => {
 		return base.respSuccess({
 			...res,
 			msg: '翻译成功',
-			data: Array.isArray(body.text) ? data : data[0],
+			data: Array.isArray(rawText) ? data : data[0],
 		})
 	} catch (error) {
 		console.error('翻译错误:', error)
