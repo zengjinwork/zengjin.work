@@ -1,0 +1,1 @@
+import{Kr as e,Lr as t,Pr as n,Ti as r,ai as i,l as a,ni as o,wi as s,xi as c}from"./index-BgN02Kda.js";e(),c();var l=a({__name:`水面卡通`,setup(e){return s({}),r(),o(()=>{}),(e,r)=>(i(),t(`section`,null,[...r[0]||=[n(`iframe`,{src:`/$apps/case/动画效果/水面小船/`},null,-1)]]))}},[[`__scopeId`,`data-v-c16636dd`]]);export{l as default};
