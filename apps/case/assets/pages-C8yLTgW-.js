@@ -1,1 +1,0 @@
-import{Fr as e,Kr as t,ai as n}from"./index-BRaIaz8O.js";import r from"./pages-DPxhSh9Q.js";t();var i={__name:`index`,setup(t){return(t,i)=>(n(),e(r))}};export{i as default};
