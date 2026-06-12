@@ -1,0 +1,1 @@
+var e=`/case/assets/demo-_bAlINtA.mp4`;export{e as t};

@@ -1,0 +1,1 @@
+import{Kr as e,Lr as t,Pr as n,Ti as r,ai as i,l as a,ni as o,wi as s,xi as c}from"./index-BRaIaz8O.js";e(),c();var l=a({__name:`藤蔓`,setup(e){return s({}),r(),o(()=>{}),(e,r)=>(i(),t(`section`,null,[...r[0]||=[n(`iframe`,{src:`/$apps/case/动画效果/藤蔓/`},null,-1)]]))}},[[`__scopeId`,`data-v-5128f2e0`]]);export{l as default};
