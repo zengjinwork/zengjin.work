@@ -1,1 +1,0 @@
-import{Wr as e,xr as t}from"./index-B5NU7sqD.js";import n from"./demo_2-D-8VqjB2.js";var r={__name:`demo_2x`,setup(r){return(r,i)=>(e(),t(n,{h1:`demo_2x`}))}};export{r as default};

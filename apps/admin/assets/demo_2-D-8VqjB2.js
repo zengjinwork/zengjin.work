@@ -1,1 +1,0 @@
-import{Cr as e,Wr as t,br as n,mi as r}from"./index-B5NU7sqD.js";var i={__name:`demo_2`,props:[`h1`],setup(i){let a=i;return(i,o)=>(t(),e(`section`,null,[n(`h1`,null,r(a.h1||`demo_2`),1),o[0]||=n(`input`,null,null,-1)]))}};export{i as default};

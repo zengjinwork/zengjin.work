@@ -1,0 +1,1 @@
+import{Fr as e,Rr as t,ai as n,h as r}from"./index-14fugMDj.js";var i=r(Object.assign({name:Math.random().toString(36).slice(2)},{__name:`index`,setup(r){return(r,i)=>(n(),t(`section`,null,[...i[0]||=[e(`h1`,null,`系统状态`,-1)]]))}}),[[`__scopeId`,`data-v-da8509b3`]]);export{i as default};
