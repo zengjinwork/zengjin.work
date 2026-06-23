@@ -468,16 +468,50 @@ actions.post.chat = async ({ req, resp, body }) => {
 	})
 
 	try {
-		// 向大模型厂商发起 fetch 流式请求
-		const response = await fetch(modelConfig.url, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${modelConfig.key}`,
-			},
-			body: JSON.stringify(targetBody),
-			signal: controller.signal,
-		})
+		let response
+		let retryAttempt = 0 // 当前已重试的次数
+		const retryMax = 3 // 最大重试次数
+		const retryDelays = [1000, 2000, 4000] // 每次重试的间隔时间 (ms)
+
+		while (true) {
+			try {
+				// 向大模型厂商发起 fetch 流式请求
+				response = await fetch(modelConfig.url, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${modelConfig.key}`,
+					},
+					body: JSON.stringify(targetBody),
+					signal: controller.signal,
+				})
+
+				// 遇到 503 临时不可用且未超出重试次数，执行退避重试
+				if (response.status === 503 && retryAttempt < retryMax) {
+					retryAttempt++
+					// 基础延时 + 0~500ms 随机抖动 (避免并发客户端同时发起重试造成二次拥堵)
+					const retryDelay = (retryDelays[retryAttempt - 1] || 1000) + Math.floor(Math.random() * 500)
+					console.warn(`[AI Proxy] 上游模型 503 负载过高 (尝试第 ${retryAttempt} 次重试), 将在 ${retryDelay}ms 后重试...`)
+					await new Promise(resolve => setTimeout(resolve, retryDelay))
+					continue
+				}
+			} catch (fetchError) {
+				// 如果是用户主动取消了请求，直接中断抛出
+				if (controller.signal.aborted) {
+					throw fetchError
+				}
+				// 其它连接级别异常在未超出重试次数时也尝试重试
+				if (retryAttempt < retryMax) {
+					retryAttempt++
+					const retryDelay = (retryDelays[retryAttempt - 1] || 1000) + Math.floor(Math.random() * 500)
+					console.warn(`[AI Proxy] 请求网络异常: ${fetchError.message} (尝试第 ${retryAttempt} 次重试), 将在 ${retryDelay}ms 后重试...`)
+					await new Promise(resolve => setTimeout(resolve, retryDelay))
+					continue
+				}
+				throw fetchError
+			}
+			break
+		}
 
 		if (!response.ok) {
 			const errText = await response.text()
