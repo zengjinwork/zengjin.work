@@ -10,6 +10,7 @@ import keepaliveHandler from './_base/keepalive.js'
 import storageHandler from './_base/storage.js'
 import wsdemoHandler from './_base/wsdemo.js'
 import aiHandler from './_base/ai.js'
+import backupHandler from './_base/backup.js'
 import fileHandler from './_file.js'
 import docHandler from './_doc.js'
 
@@ -55,6 +56,8 @@ export default async function masterHandler(req, res) {
 						return await wsdemoHandler(req, res)
 					} else if (subModule === 'ai') {
 						return await aiHandler(req, res)
+					} else if (subModule === 'backup') {
+						return await backupHandler(req, res)
 					}
 
 					return res.status(404).json({ error: `base 基础网关拦截: 未识别或未挂载的业务模块 '${subModule}'` })

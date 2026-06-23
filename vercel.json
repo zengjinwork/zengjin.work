@@ -49,6 +49,10 @@
 		{
 			"path": "/api/base/keepalive/supabase",
 			"schedule": "0 19 * * *"
+		},
+		{
+			"path": "/api/base/backup",
+			"schedule": "0 19 * * *"
 		}
 	]
 }
