@@ -1,1 +1,0 @@
-import{Ir as e,ai as t}from"./index-14fugMDj.js";import n from"./demo_2-CI9Kylmh.js";var r={__name:`demo_2x`,setup(r){return(r,i)=>(t(),e(n,{h1:`demo_2x`}))}};export{r as default};

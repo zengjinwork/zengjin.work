@@ -1,1 +1,0 @@
-import{Fr as e,Rr as t,ai as n,h as r}from"./index-14fugMDj.js";var i={};function a(r,i){return n(),t(`section`,null,[...i[0]||=[e(`h1`,null,`demo_4-2-1`,-1),e(`input`,null,null,-1)]])}var o=r(i,[[`render`,a]]);export{o as default};

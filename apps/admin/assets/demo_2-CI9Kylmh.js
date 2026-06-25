@@ -1,1 +1,0 @@
-import{Fr as e,Rr as t,ai as n,ki as r}from"./index-14fugMDj.js";var i={__name:`demo_2`,props:[`h1`],setup(i){let a=i;return(i,o)=>(n(),t(`section`,null,[e(`h1`,null,r(a.h1||`demo_2`),1),o[0]||=e(`input`,null,null,-1)]))}};export{i as default};

@@ -1,0 +1,1 @@
+import{Ir as e,ai as t}from"./index-m6iOfvOZ.js";import n from"./demo_2-CC1JPzo2.js";var r={__name:`demo_2x`,setup(r){return(r,i)=>(t(),e(n,{h1:`demo_2x`}))}};export{r as default};
