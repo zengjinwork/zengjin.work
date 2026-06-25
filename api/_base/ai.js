@@ -232,16 +232,17 @@ actions.get.admin_models = requireAuth(async () => {
 actions.post.admin_models_save = requireAuth(async ({ body }) => {
 	await ensure_dbInitialized_async()
 	const { id, name, provider, url, key, model, desc, status = 1, isReasoning = 0, sort = 0 } = body
-	const invalids = base.checkValids(body, ['id', 'name', 'provider', 'url', 'key', 'model'])
+	const invalids = base.checkValids(body, ['name', 'provider', 'url', 'key', 'model'])
 	if (invalids) {
 		return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
 	}
 
 	try {
-		const check = await db.query('SELECT id FROM base_ai WHERE id = $1', [id])
+		const finalId = id || base.getId()
+		const check = await db.query('SELECT id FROM base_ai WHERE id = $1', [finalId])
 		const nowTime = base.getTime()
 
-		if (check.rowCount > 0) {
+		if (check.rowCount > 0 && id) {
 			// 更新
 			await db.query(
 				`
@@ -249,9 +250,9 @@ actions.post.admin_models_save = requireAuth(async ({ body }) => {
 				SET name = $2, provider = $3, url = $4, key = $5, model = $6, "desc" = $7, status = $8, "isReasoning" = $9, sort = $10, "updateTime" = $11
 				WHERE id = $1
 			`,
-				[id, name, provider, url, key, model, desc || '', status, isReasoning, sort, nowTime],
+				[finalId, name, provider, url, key, model, desc || '', status, isReasoning, sort, nowTime],
 			)
-			return base.respSuccess({ msg: '更新模型成功' })
+			return base.respSuccess({ msg: '更新模型成功', data: finalId })
 		} else {
 			// 新增
 			await db.query(
@@ -259,9 +260,9 @@ actions.post.admin_models_save = requireAuth(async ({ body }) => {
 				INSERT INTO base_ai (id, name, provider, url, key, model, "desc", status, "isReasoning", sort, "createTime", "updateTime")
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
 			`,
-				[id, name, provider, url, key, model, desc || '', status, isReasoning, sort, nowTime],
+				[finalId, name, provider, url, key, model, desc || '', status, isReasoning, sort, nowTime],
 			)
-			return base.respSuccess({ msg: '创建模型成功' })
+			return base.respSuccess({ msg: '创建模型成功', data: finalId })
 		}
 	} catch (error) {
 		return base.respFailure({ msg: `保存失败: ${error.message}` })
