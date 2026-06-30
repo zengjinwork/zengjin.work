@@ -1,0 +1,1 @@
+import{Hn as e,bn as t}from"./index-DuaMbzhf.js";import{t as n}from"./MapMars3d-46xfKMib.js";var r={__name:`init`,setup(r){return(r,i)=>(e(),t(n))}};export{r as default};

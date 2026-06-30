@@ -1,0 +1,1 @@
+import{$t as e,Bt as t,Qt as n,Yt as r,wt as i}from"./index-DuaMbzhf.js";function a(t,r,a){for(var o=-1,s=r.length,c={};++o<s;){var l=r[o],u=n(t,l);a(u,l)&&i(c,e(l,t),u)}return c}function o(e,n){return a(e,n,function(n,r){return t(e,r)})}var s=r(function(e,t){return e==null?{}:o(e,t)});export{s as t};

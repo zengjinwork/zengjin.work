@@ -1,1 +1,0 @@
-import"./Precode.vue_vue_type_style_index_1_lang-CD3obaXz.js";import{c as e,d as r,i as a,e as o,F as s}from"./index-Dka3G2iL.js";import{M as t}from"./MapMars3d-BddG17cd.js";const d={__name:"初始化",setup(c){return(m,n)=>(r(),e(s,null,[a(t),o(' <Precode url="/gis/pages/mars3d/初始化.vue,/_src/components/Mars3d.vue" /> ')],2112))}};export{d as default};
