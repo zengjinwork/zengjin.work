@@ -1,1 +1,0 @@
-import{Bn as e,er as t,ir as n,rr as r,wn as i}from"./index-BgN02Kda.js";function a(e,t,a){for(var o=-1,s=t.length,c={};++o<s;){var l=t[o],u=r(e,l);a(u,l)&&i(c,n(l,e),u)}return c}function o(t,n){return a(t,n,function(n,r){return e(t,r)})}var s=t(function(e,t){return e==null?{}:o(e,t)});export{s as t};
