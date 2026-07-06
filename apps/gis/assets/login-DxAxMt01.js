@@ -1,0 +1,1 @@
+import{En as e,Jn as t}from"./index-BxyjNtm7.js";import n from"./login-BbIQ4NRI.js";var r={__name:`index`,setup(r){return(r,i)=>(t(),e(n))}};export{r as default};
