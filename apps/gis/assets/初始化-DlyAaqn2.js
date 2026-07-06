@@ -1,1 +1,0 @@
-import{Un as e,xn as t}from"./index-Ck4-sDrn.js";import{t as n}from"./MapAmap-bX8ZKV0P.js";var r={__name:`初始化`,setup(r){return(r,i)=>(e(),t(n))}};export{r as default};

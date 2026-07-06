@@ -1,1 +1,0 @@
-import{Un as e,xn as t}from"./index-Ck4-sDrn.js";import n from"./login-CaN1ubyr.js";var r={__name:`index`,setup(r){return(r,i)=>(e(),t(n))}};export{r as default};

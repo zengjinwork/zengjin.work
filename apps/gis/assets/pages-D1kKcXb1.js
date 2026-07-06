@@ -1,1 +1,0 @@
-import{Cn as e,Un as t,bn as n,o as r,or as i,s as a,u as o,ur as s}from"./index-Ck4-sDrn.js";var c=o({__name:`index`,setup(o){let c=$config.title;return a(),r(),(r,a)=>(t(),e(`section`,null,[n(`h1`,null,s(i(c)),1)]))}},[[`__scopeId`,`data-v-bab642a3`]]);export{c as default};
