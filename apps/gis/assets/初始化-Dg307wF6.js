@@ -1,1 +1,0 @@
-import{Hn as e,bn as t}from"./index-DuaMbzhf.js";import{t as n}from"./MapAmap-CDo--ujA.js";var r={__name:`初始化`,setup(r){return(r,i)=>(e(),t(n))}};export{r as default};

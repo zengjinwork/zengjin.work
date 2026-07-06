@@ -1,0 +1,1 @@
+import{Un as e,xn as t}from"./index-Ck4-sDrn.js";import{t as n}from"./MapMars3d-DxtaAFnh.js";var r={__name:`init`,setup(r){return(r,i)=>(e(),t(n))}};export{r as default};

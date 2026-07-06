@@ -1,0 +1,1 @@
+import{$t as e,Tt as t,Vt as n,Xt as r,en as i}from"./index-Ck4-sDrn.js";function a(n,r,a){for(var o=-1,s=r.length,c={};++o<s;){var l=r[o],u=e(n,l);a(u,l)&&t(c,i(l,n),u)}return c}function o(e,t){return a(e,t,function(t,r){return n(e,r)})}var s=r(function(e,t){return e==null?{}:o(e,t)});export{s as t};

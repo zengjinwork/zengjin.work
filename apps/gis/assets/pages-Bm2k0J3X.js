@@ -1,1 +1,0 @@
-import{Hn as e,Sn as t,ar as n,lr as r,o as i,s as a,u as o,yn as s}from"./index-DuaMbzhf.js";var c=o({__name:`index`,setup(o){let c=$config.title;return a(),i(),(i,a)=>(e(),t(`section`,null,[s(`h1`,null,r(n(c)),1)]))}},[[`__scopeId`,`data-v-bab642a3`]]);export{c as default};

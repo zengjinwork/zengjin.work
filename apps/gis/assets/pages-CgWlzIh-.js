@@ -1,1 +1,0 @@
-import{Hn as e,bn as t}from"./index-DuaMbzhf.js";import n from"./pages-Bm2k0J3X.js";var r={__name:`index`,setup(r){return(r,i)=>(e(),t(n))}};export{r as default};
