@@ -233,8 +233,9 @@ actions.post.insert = async options => {
 	const updates = []
 	const binds = []
 	fields.forEach(field => {
+		const key = field.replace(/"/g, '')
 		updates.push(field)
-		binds.push(base.formatDbBind(body[field]))
+		binds.push(base.formatDbBind(body[key]))
 	})
 
 	try {
