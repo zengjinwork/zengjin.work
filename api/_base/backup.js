@@ -1,6 +1,6 @@
+import { checkAuth } from '#api_util/auth_middleware.js'
 import base from '#api_util/base.js'
 import { getPool } from '#api_util/db.js'
-import { checkAuth } from '#api_util/auth_middleware.js'
 
 // 本接口专用：执行主备双写更新日志
 async function upsert_backup_log_async(pool, logObj) {

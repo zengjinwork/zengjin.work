@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+
 import base from '#api_util/base.js'
 
 const actions = {
@@ -35,14 +36,12 @@ function sign_volcRequest(method, path, query, headers, body, service, region, a
 	// 构建新的 headers (仅签名 host 和 x-date 确保兼容与精简)
 	const newHeaders = {
 		...headers,
-		'host': 'translate.volcengineapi.com',
+		host: 'translate.volcengineapi.com',
 		'x-date': xDate,
 	}
 
 	const signedHeadersKeys = ['host', 'x-date']
-	const canonicalHeaders = signedHeadersKeys
-		.map(k => `${k}:${String(newHeaders[k]).trim()}`)
-		.join('\n') + '\n'
+	const canonicalHeaders = signedHeadersKeys.map(k => `${k}:${String(newHeaders[k]).trim()}`).join('\n') + '\n'
 
 	const signedHeaders = 'host;x-date'
 
@@ -53,25 +52,13 @@ function sign_volcRequest(method, path, query, headers, body, service, region, a
 		.join('&')
 
 	// 构建规范请求
-	const canonicalRequest = [
-		method.toUpperCase(),
-		path,
-		canonicalQuery,
-		canonicalHeaders,
-		signedHeaders,
-		hashedPayload,
-	].join('\n')
+	const canonicalRequest = [method.toUpperCase(), path, canonicalQuery, canonicalHeaders, signedHeaders, hashedPayload].join('\n')
 
 	const hashedCanonicalRequest = hash_sha256(canonicalRequest)
 	const credentialScope = `${date}/${region}/${service}/request`
 
 	// 待签字符串
-	const stringToSign = [
-		'HMAC-SHA256',
-		xDate,
-		credentialScope,
-		hashedCanonicalRequest,
-	].join('\n')
+	const stringToSign = ['HMAC-SHA256', xDate, credentialScope, hashedCanonicalRequest].join('\n')
 
 	// 计算派生签名密钥
 	const kDate = compute_hmac(sk, date)
@@ -85,9 +72,9 @@ function sign_volcRequest(method, path, query, headers, body, service, region, a
 	// 返回发送请求时所需的全部 Headers
 	const requestHeaders = {
 		'Content-Type': 'application/json',
-		'Host': 'translate.volcengineapi.com',
+		Host: 'translate.volcengineapi.com',
 		'X-Date': xDate,
-		'Authorization': `HMAC-SHA256 Credential=${ak}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
+		Authorization: `HMAC-SHA256 Credential=${ak}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
 	}
 
 	return requestHeaders
@@ -194,17 +181,7 @@ actions.get.hs = async options => {
 
 	try {
 		// 生成 V4 签名 Headers
-		const signedHeaders = sign_volcRequest(
-			'POST',
-			path,
-			queryParams,
-			{},
-			requestBody,
-			service,
-			region,
-			accessKeyId,
-			secretAccessKey
-		)
+		const signedHeaders = sign_volcRequest('POST', path, queryParams, {}, requestBody, service, region, accessKeyId, secretAccessKey)
 
 		// 发送 POST 请求到火山引擎
 		const queryString = new URLSearchParams(queryParams).toString()
@@ -240,7 +217,6 @@ actions.get.hs = async options => {
 			msg: '翻译成功',
 			data: Array.isArray(rawText) ? translations : translations[0],
 		})
-
 	} catch (error) {
 		console.error('火山翻译错误:', error)
 		return base.respFailure({

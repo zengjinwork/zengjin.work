@@ -1,6 +1,6 @@
+import { checkAuth } from '#api_util/auth_middleware.js'
 import base from '#api_util/base.js'
 import curd from '#api_util/crud.js'
-import { checkAuth } from '#api_util/auth_middleware.js'
 
 const actions = { ...curd }
 

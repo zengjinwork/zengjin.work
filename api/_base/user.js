@@ -1,8 +1,8 @@
-import db from '#api_util/db.js'
+import { requireAuth } from '#api_util/auth_middleware.js'
 import base from '#api_util/base.js'
 import { decryptPassword, encryptPassword, hashToken } from '#api_util/crypto.js'
+import db from '#api_util/db.js'
 import { generateAccessToken, generateRefreshToken } from '#api_util/jwt.js'
-import { requireAuth } from '#api_util/auth_middleware.js'
 
 /**
  * 用户及身份认证相关接口
@@ -77,11 +77,11 @@ const actions = {
 				const isOnline = Number(query.isOnline)
 				// onlineIds 预期为以逗号分隔的字符串或数组
 				const onlineIds = (Array.isArray(query.onlineIds) ? query.onlineIds : (query.onlineIds || '').split(',')).filter(Boolean).map(Number)
-				
+
 				if (isOnline === 1) {
 					// 仅查询在线用户：如果当前没人在线，直接返回空，否则使用 ANY
 					if (onlineIds.length === 0) {
-						wheres.push('1 = 0') 
+						wheres.push('1 = 0')
 					} else {
 						binds.push(onlineIds)
 						wheres.push(`id = ANY($${binds.length})`)

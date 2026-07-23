@@ -8,7 +8,8 @@
 	}
 }
 body {
-	background: linear-gradient(163deg, transparent 0, transparent 1px, BlanchedAlmond 1px, BlanchedAlmond 14px, transparent 14px),
+	background:
+		linear-gradient(163deg, transparent 0, transparent 1px, BlanchedAlmond 1px, BlanchedAlmond 14px, transparent 14px),
 		linear-gradient(161deg, transparent 0, #fff 2px, BlanchedAlmond 2px, BlanchedAlmond 16px, transparent 16px),
 		linear-gradient(343deg, transparent 0, transparent 1px, #ffe1b4 1px, BlanchedAlmond 14px, transparent 14px),
 		linear-gradient(343deg, transparent 0, transparent 1px, #ffe1b4 1px, BlanchedAlmond 14px, transparent 14px);

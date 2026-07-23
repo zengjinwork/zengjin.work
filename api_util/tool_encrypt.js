@@ -2,7 +2,6 @@
  * 明文转密文工具
  * 使用方法: node tool_encrypt.js "你的明文"
  */
-
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'

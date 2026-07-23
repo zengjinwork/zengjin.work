@@ -1,16 +1,15 @@
 /**
  * 密码加密工具脚本（简化版，无需额外依赖）
  * 用于生成AES加密后的密码，以便手动插入到数据库
- * 
+ *
  * 使用方法：
  * 1. 先在命令行设置环境变量（Windows PowerShell）：
  *    $env:CRYPTO_SECRET="your-secret-key"
  * 2. 然后运行：
  *    node encrypt_password_simple.js "明文密码"
- * 
+ *
  * 或者直接在下面第16行修改 CRYPTO_SECRET 常量
  */
-
 import crypto from 'crypto'
 
 // 方式1: 直接在这里设置密钥（不推荐，仅用于测试）
@@ -67,10 +66,12 @@ try {
 	console.log('明文密码:', plainPassword)
 	console.log('加密密码:', encryptedPassword)
 	console.log('\n将以下SQL插入到Supabase中创建测试用户：')
-	console.log(`
+	console.log(
+		`
 INSERT INTO base_user (username, password, phone, nickname)
 VALUES ('testuser', '${encryptedPassword}', '13800138000', '测试用户');
-	`.trim())
+	`.trim(),
+	)
 	console.log()
 } catch (error) {
 	console.error('加密失败:', error.message)

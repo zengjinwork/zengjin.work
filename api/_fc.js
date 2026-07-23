@@ -1,6 +1,6 @@
-import db from '#api_util/db.js'
-import base from '#api_util/base.js'
 import provider from '#api_util/_storage_provider.js'
+import base from '#api_util/base.js'
+import db from '#api_util/db.js'
 
 const BUCKET = 'cdn'
 const actions = { get: {}, post: {} }
@@ -51,7 +51,7 @@ actions.get.select = async ({ query }) => {
 			 FROM fc ${whereStr}
 			 ORDER BY sort DESC, ${orderBy}
 			 LIMIT $${idx} OFFSET $${idx + 1}`,
-			[...binds, pageSize, offset]
+			[...binds, pageSize, offset],
 		)
 
 		// 批量查分类（用于卡片展示前 2 个分类标签）
@@ -63,7 +63,7 @@ actions.get.select = async ({ query }) => {
 				 FROM fc_category_link cl
 				 JOIN fc_category c ON cl."categoryId" = c.id
 				 WHERE cl."fcId" = ANY($1)`,
-				[ids]
+				[ids],
 			)
 			catRes.rows.forEach(r => {
 				if (!categoryMap[r.fcId]) categoryMap[r.fcId] = []
@@ -101,7 +101,7 @@ actions.get.detail = async ({ query }) => {
 			`SELECT c.id, c.name FROM fc_category_link cl
 			 JOIN fc_category c ON cl."categoryId" = c.id
 			 WHERE cl."fcId" = $1`,
-			[query.id]
+			[query.id],
 		)
 		game.categories = catRes.rows
 
@@ -110,7 +110,7 @@ actions.get.detail = async ({ query }) => {
 			`SELECT t.id, t.name FROM fc_tag_link tl
 			 JOIN fc_tag t ON tl."tagId" = t.id
 			 WHERE tl."fcId" = $1`,
-			[query.id]
+			[query.id],
 		)
 		game.tags = tagRes.rows
 
@@ -158,9 +158,7 @@ actions.get.tag = async () => {
 /** Banner 列表 */
 actions.get.banner = async () => {
 	try {
-		const res = await db.query(
-			'SELECT id, "fcId", image, link, sort FROM fc_banner WHERE "deleteTime" IS NULL ORDER BY sort DESC, id'
-		)
+		const res = await db.query('SELECT id, "fcId", image, link, sort FROM fc_banner WHERE "deleteTime" IS NULL ORDER BY sort DESC, id')
 		return base.respSuccess({ data: base.formatDbRows(res.rows) })
 	} catch (error) {
 		return base.respFailure({ msg: `查询失败: ${error.message}` })
@@ -185,13 +183,19 @@ actions.post.insert = async ({ body }) => {
 			`INSERT INTO fc (id, name, cover, maker, "playerCount", "releaseDate", summary, "romPath", sort, "keymapConfig", "keymapDesc", "insertTime")
 			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 			[
-				newId, body.name, body.cover || '', body.maker || '', body.playerCount || '',
-				body.releaseDate === '' ? null : (body.releaseDate || null),
-				body.summary || '', body.romPath || '', body.sort || 0,
+				newId,
+				body.name,
+				body.cover || '',
+				body.maker || '',
+				body.playerCount || '',
+				body.releaseDate === '' ? null : body.releaseDate || null,
+				body.summary || '',
+				body.romPath || '',
+				body.sort || 0,
 				body.keymapConfig != null ? JSON.stringify(body.keymapConfig) : null,
 				body.keymapDesc != null ? JSON.stringify(body.keymapDesc) : null,
 				now,
-			]
+			],
 		)
 
 		// 同步别称表
@@ -259,7 +263,7 @@ actions.post.update = async ({ body }) => {
 				body.keymapDesc != null ? JSON.stringify(body.keymapDesc) : oldRecord.keymapDesc,
 				now,
 				body.id,
-			]
+			],
 		)
 
 		// 同步别称表（先删后插）
@@ -292,10 +296,7 @@ actions.post.update = async ({ body }) => {
 			for (let i = 0; i < body.imgs.length; i++) {
 				const img = body.imgs[i]
 				if (img.url) {
-					await db.query(
-						'INSERT INTO fc_img (id, "fcId", url, sort) VALUES ($1, $2, $3, $4)',
-						[base.getId(), body.id, img.url, img.sort ?? i]
-					)
+					await db.query('INSERT INTO fc_img (id, "fcId", url, sort) VALUES ($1, $2, $3, $4)', [base.getId(), body.id, img.url, img.sort ?? i])
 				}
 			}
 		}
@@ -311,7 +312,9 @@ actions.post.update = async ({ body }) => {
 		// 异步清理旧文件，不阻塞响应
 		for (const key of filesToDelete) {
 			if (key) {
-				try { await provider.deleteFile(BUCKET, key) } catch {}
+				try {
+					await provider.deleteFile(BUCKET, key)
+				} catch {}
 			}
 		}
 
@@ -349,7 +352,7 @@ actions.get.selectDeleted = async ({ query }) => {
 			 FROM fc WHERE "deleteTime" IS NOT NULL
 			 ORDER BY "deleteTime" DESC
 			 LIMIT $1 OFFSET $2`,
-			[pageSize, offset]
+			[pageSize, offset],
 		)
 		return base.respSuccess({ data: base.formatDbRows(listRes.rows), total })
 	} catch (error) {
@@ -402,10 +405,7 @@ actions.post.insertCategory = async ({ body }) => {
 	if (!body.name) return base.respFailure({ msg: 'name 参数缺失' })
 	try {
 		const newId = base.getId()
-		await db.query(
-			'INSERT INTO fc_category (id, name, sort) VALUES ($1, $2, $3) ',
-			[newId, body.name, body.sort || 0]
-		)
+		await db.query('INSERT INTO fc_category (id, name, sort) VALUES ($1, $2, $3) ', [newId, body.name, body.sort || 0])
 		return base.respSuccess({ msg: '新增成功', data: newId })
 	} catch (error) {
 		return base.respFailure({ msg: `新增失败: ${error.message}` })
@@ -475,10 +475,14 @@ actions.post.insertBanner = async ({ body }) => {
 	try {
 		const now = base.getTime()
 		const newId = base.getId()
-		await db.query(
-			'INSERT INTO fc_banner (id, "fcId", image, link, sort, "insertTime") VALUES ($1, $2, $3, $4, $5, $6) ',
-			[newId, body.fcId || null, body.image || '', body.link || '', body.sort || 0, now]
-		)
+		await db.query('INSERT INTO fc_banner (id, "fcId", image, link, sort, "insertTime") VALUES ($1, $2, $3, $4, $5, $6) ', [
+			newId,
+			body.fcId || null,
+			body.image || '',
+			body.link || '',
+			body.sort || 0,
+			now,
+		])
 		return base.respSuccess({ msg: '新增成功', data: newId })
 	} catch (error) {
 		return base.respFailure({ msg: `新增失败: ${error.message}` })
@@ -490,14 +494,20 @@ actions.post.updateBanner = async ({ body }) => {
 	if (!body.id) return base.respFailure({ msg: 'id 参数缺失' })
 	try {
 		const oldRes = await db.query('SELECT image FROM fc_banner WHERE id = $1', [body.id])
-		await db.query(
-			'UPDATE fc_banner SET "fcId" = $1, image = $2, link = $3, sort = $4 WHERE id = $5',
-			[body.fcId || null, body.image || '', body.link || '', body.sort || 0, body.id]
-		)
+		await db.query('UPDATE fc_banner SET "fcId" = $1, image = $2, link = $3, sort = $4 WHERE id = $5', [
+			body.fcId || null,
+			body.image || '',
+			body.link || '',
+			body.sort || 0,
+			body.id,
+		])
 		// 清理旧图片
 		if (oldRes.rowCount && body.image && oldRes.rows[0].image && body.image !== oldRes.rows[0].image) {
 			const oldKey = extract_key(oldRes.rows[0].image)
-			if (oldKey) try { await provider.deleteFile(BUCKET, oldKey) } catch {}
+			if (oldKey)
+				try {
+					await provider.deleteFile(BUCKET, oldKey)
+				} catch {}
 		}
 		return base.respSuccess({ msg: '更新成功' })
 	} catch (error) {
@@ -514,7 +524,10 @@ actions.post.deleteBanner = async ({ body }) => {
 		// 清理图片文件
 		if (oldRes.rowCount && oldRes.rows[0].image) {
 			const key = extract_key(oldRes.rows[0].image)
-			if (key) try { await provider.deleteFile(BUCKET, key) } catch {}
+			if (key)
+				try {
+					await provider.deleteFile(BUCKET, key)
+				} catch {}
 		}
 		return base.respSuccess({ msg: '删除成功' })
 	} catch (error) {
@@ -539,10 +552,7 @@ actions.post.insertMaker = async ({ body }) => {
 	if (!body.name) return base.respFailure({ msg: 'name 参数缺失' })
 	try {
 		const newId = base.getId()
-		await db.query(
-			'INSERT INTO fc_maker (id, name, sort) VALUES ($1, $2, $3) ',
-			[newId, body.name, body.sort || 0]
-		)
+		await db.query('INSERT INTO fc_maker (id, name, sort) VALUES ($1, $2, $3) ', [newId, body.name, body.sort || 0])
 		return base.respSuccess({ msg: '新增成功', data: newId })
 	} catch (error) {
 		return base.respFailure({ msg: `新增失败: ${error.message}` })

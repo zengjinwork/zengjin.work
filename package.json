@@ -10,7 +10,9 @@
 		"vercel-serve": "node .env.copy.js && vercel dev --local-config vercel.json --listen 0.0.0.0:1232",
 		"preview": "node ./vite.preview.js",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"format": "prettier --write \"api_util/**/*.js\" \"api/**/*.js\" \"*.json\" \"*.mjs\" \"*.js\"",
+		"format:check": "prettier --check \"api_util/**/*.js\" \"api/**/*.js\" \"*.json\" \"*.mjs\" \"*.js\""
 	},
 	"dependencies": {
 		"@supabase/supabase-js": "^2.93.3",

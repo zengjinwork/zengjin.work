@@ -1,6 +1,6 @@
-import { createServer, preview } from 'vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import chalk from 'chalk'
+import { createServer, preview } from 'vite'
 
 let config = {
 	// 将根目录设置为静态文件服务目录

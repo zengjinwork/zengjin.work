@@ -12,5 +12,10 @@ export default {
 
 	// tailwindcss 插件, 自动调整class顺序
 	// tailwindStylesheet: './_src/css/base.css',
-	plugins: ['prettier-plugin-tailwindcss'],
+	plugins: ['prettier-plugin-tailwindcss', '@trivago/prettier-plugin-sort-imports'],
+
+	// @trivago/prettier-plugin-sort-imports 配置
+	importOrder: ['^#', '^[.]', '^.+\\.(css|less)$'],
+	importOrderSeparation: true,
+	importOrderSortSpecifiers: true,
 }

@@ -46,7 +46,6 @@ export async function checkAuth(req, resp) {
 
 		// 验证成功，放行
 		return true
-
 	} catch (error) {
 		console.error('认证过程发生异常:', error)
 		resp.status(500).json({ code: -1, msg: '服务器内部错误' })

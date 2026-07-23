@@ -7,22 +7,22 @@ export default async (req, res) => {
 	// 在 Vercel 特解架构 [folder]/[...action].js 下：
 	// 例 1：/api/demo/hello -> folder 是 'demo', action 是 ['hello']
 	// 例 2：/api/note/select -> folder 是 'note', action 是 ['select']
-	const targetModule = req.query.folder 
+	const targetModule = req.query.folder
 
 	// 获取 Vercel 传递的原始捕获数组（兼容处理 ...action 这种诡异的 CLI Bug 字段）
 	let rawAction = req.query.action || req.query['...action'] || []
 
-	console.log('rawAction', rawAction);
-	
+	console.log('rawAction', rawAction)
+
 	if (typeof rawAction === 'string') {
 		rawAction = rawAction.split('/')
 	}
-	
+
 	// 为了完美兼容底层的 _demo.js 和 _note.js 对数组长度截取的逻辑
 	// 我们手动补齐完整路径数组，使其表现得像之前的根目录捕获 ['demo', 'hello']
-	console.log('targetModule', targetModule);
-	console.log('rawAction', rawAction);
-	
+	console.log('targetModule', targetModule)
+	console.log('rawAction', rawAction)
+
 	const fullAction = [targetModule].concat(rawAction)
 	req.query.action = fullAction
 
@@ -30,15 +30,15 @@ export default async (req, res) => {
 		switch (targetModule) {
 			case 'note':
 				return await noteHandler(req, res)
-			
+
 			case 'demo':
 				return await demoHandler(req, res)
 
 			case 'zone':
 				// 对于 zone 模块，URL 为 /api/zone/mzl/class/select
 				// 此时 fullAction 为 ['zone', 'mzl', 'class', 'select']
-				console.log('fullAction', fullAction);
-				
+				console.log('fullAction', fullAction)
+
 				const zoneName = fullAction[1] // 'mzl'
 				const entity = fullAction[2] // 'class' 或 'student'
 

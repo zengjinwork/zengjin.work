@@ -1,7 +1,6 @@
-import db from '#api_util/db.js'
-import base from '#api_util/base.js'
 import { checkAuth } from '#api_util/auth_middleware.js'
-
+import base from '#api_util/base.js'
+import db from '#api_util/db.js'
 
 const actions = {
 	get: {},
@@ -9,7 +8,7 @@ const actions = {
 }
 
 /* 简单示例 */
-actions.get.hello = async options=> {
+actions.get.hello = async options => {
 	const { req, resp, query, body } = options
 	return resp.status(200).json({
 		message: '你好世界! 这是通过合并路由返回的。',
@@ -21,7 +20,7 @@ actions.get.hello = async options=> {
  * sayhello 方法：返回 Hello 消息
  * 仅用于演示动态路由 [action].js 的方法分发
  */
-actions.get.sayhello = async options=> {
+actions.get.sayhello = async options => {
 	const now = base.getTime()
 	return base.respSuccess({
 		data: {
@@ -35,7 +34,7 @@ actions.get.sayhello = async options=> {
  * sayhi 方法：返回 Hi 消息
  * 仅用于演示动态路由 [action].js 的方法分发
  */
-actions.get.sayhi = async options=> {
+actions.get.sayhi = async options => {
 	const now = base.getTime()
 	return base.respSuccess({
 		msg: '请求成功',
@@ -47,12 +46,12 @@ actions.get.sayhi = async options=> {
 }
 
 /* 鉴权测试 */
-actions.get.auth = async options=> {
+actions.get.auth = async options => {
 	// 直接在此拦截。如果不通过，checkAuth 内部会自动执行 resp.status 并结束流返回 false
 	if (!(await checkAuth(base.req, base.resp))) {
 		return
 	}
-	
+
 	try {
 		const { userId, username } = base.req.user
 		return base.respSuccess({
@@ -68,12 +67,10 @@ actions.get.auth = async options=> {
 	}
 }
 
-
-
 // 这是被总开关包含在内的隐形控制器模块
 export default async (req, resp) => {
 	base.req = req
-	base.resp = resp 
+	base.resp = resp
 
 	const { table, method, action, query, body } = base.getReqInfo()
 

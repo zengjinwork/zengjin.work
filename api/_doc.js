@@ -1,8 +1,8 @@
-import swaggerJsdoc from 'swagger-jsdoc'
-import path from 'node:path'
-import os from 'node:os'
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import swaggerJsdoc from 'swagger-jsdoc'
 
 /**
  * 兼容 ESM 的 __dirname 实现

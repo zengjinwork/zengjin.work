@@ -1,6 +1,7 @@
-import express from 'express'
-import masterHandler from './api/index.js'
 import chalk from 'chalk'
+import express from 'express'
+
+import masterHandler from './api/index.js'
 
 const app = express()
 const PORT = 1232
@@ -14,8 +15,11 @@ app.use(express.urlencoded({ extended: true }))
 app.use((req, res, next) => {
 	res.header('Access-Control-Allow-Origin', '*')
 	res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
-	res.header('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization')
-	
+	res.header(
+		'Access-Control-Allow-Headers',
+		'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization',
+	)
+
 	if (req.method === 'OPTIONS') {
 		return res.sendStatus(200)
 	}

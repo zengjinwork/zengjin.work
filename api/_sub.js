@@ -1,7 +1,8 @@
-import db from '#api_util/db.js'
-import base from '#api_util/base.js'
-import { checkAuth } from '#api_util/auth_middleware.js'
 import dayjs from 'dayjs'
+
+import { checkAuth } from '#api_util/auth_middleware.js'
+import base from '#api_util/base.js'
+import db from '#api_util/db.js'
 
 const actions = {
 	get: {},
@@ -23,7 +24,7 @@ async function ensure_tables_exist() {
 
 		if (!subExists) {
 			console.log('检测到订阅周期管家数据表不存在，正在初始化数据库...')
-			
+
 			// 使用事务串行创建表和索引
 			await db.query('BEGIN')
 
@@ -224,7 +225,8 @@ actions.post.insert = async options => {
 	}
 
 	const id = base.getId()
-	const fields = 'id,user_id,name,period_type,period_value,start_time,end_time,remind_time,warn_time,category,tags,price,currency,url,remark,"insertTime"'.split(',')
+	const fields =
+		'id,user_id,name,period_type,period_value,start_time,end_time,remind_time,warn_time,category,tags,price,currency,url,remark,"insertTime"'.split(',')
 
 	body.id = id
 	body.user_id = userId
@@ -247,14 +249,7 @@ actions.post.insert = async options => {
 		// 变更历史记录
 		const historyId = base.getId()
 		const insertHistorySql = `INSERT INTO sub_history (id, sub_id, user_id, action_type, change_desc, "insertTime") VALUES ($1, $2, $3, $4, $5, $6)`
-		await db.query(insertHistorySql, [
-			historyId,
-			id,
-			userId,
-			'insert',
-			'创建订阅周期记录',
-			base.getTime(),
-		])
+		await db.query(insertHistorySql, [historyId, id, userId, 'insert', '创建订阅周期记录', base.getTime()])
 
 		await db.query('COMMIT')
 		return base.respSuccess({ msg: '新增成功', data: id })
@@ -349,14 +344,7 @@ actions.post.update = async options => {
 		const changeDesc = (isRenew ? '【续期成功】' : '【信息变更】') + changes.join('；')
 
 		const insertHistorySql = `INSERT INTO sub_history (id, sub_id, user_id, action_type, change_desc, "insertTime") VALUES ($1, $2, $3, $4, $5, $6)`
-		await db.query(insertHistorySql, [
-			historyId,
-			body.id,
-			userId,
-			actionType,
-			changeDesc,
-			updateTime,
-		])
+		await db.query(insertHistorySql, [historyId, body.id, userId, actionType, changeDesc, updateTime])
 
 		await db.query('COMMIT')
 		return base.respSuccess({ msg: '编辑成功', data: body.id })
@@ -386,14 +374,7 @@ actions.post.delete = async options => {
 
 		const historyId = base.getId()
 		const insertHistorySql = `INSERT INTO sub_history (id, sub_id, user_id, action_type, change_desc, "insertTime") VALUES ($1, $2, $3, $4, $5, $6)`
-		await db.query(insertHistorySql, [
-			historyId,
-			body.id,
-			userId,
-			'delete',
-			'注销/删除订阅记录',
-			deleteTime,
-		])
+		await db.query(insertHistorySql, [historyId, body.id, userId, 'delete', '注销/删除订阅记录', deleteTime])
 
 		await db.query('COMMIT')
 		return base.respSuccess({ msg: '删除成功', data: body.id })

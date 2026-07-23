@@ -1,6 +1,7 @@
 import base from '#api_util/base.js'
 import curd from '#api_util/crud.js'
 import db from '#api_util/db.js'
+
 // const actions = { ...curd }
 const actions = {
 	get: {},
@@ -241,10 +242,10 @@ actions.post.update = async options => {
 				}
 			}
 
-			const res = await db.query(`update ${table} set ${updates.map((update, i) => update.replace('?', `$${i + 1}`)).join(', ')} where id = $${updates.length + 1}`, [
-				...binds,
-				id,
-			])
+			const res = await db.query(
+				`update ${table} set ${updates.map((update, i) => update.replace('?', `$${i + 1}`)).join(', ')} where id = $${updates.length + 1}`,
+				[...binds, id],
+			)
 			if (res?.rowCount) {
 				successIds.push(id)
 			}

@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+
 import { generateRandomToken } from './crypto.js'
 
 /**

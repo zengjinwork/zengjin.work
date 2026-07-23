@@ -5,7 +5,6 @@
  * 使用方法：
  * node encrypt_password_standalone.js "明文密码"
  */
-
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'

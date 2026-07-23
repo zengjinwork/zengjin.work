@@ -1,7 +1,7 @@
-import db from '#api_util/db.js'
-import base from '#api_util/base.js'
-import { verifyAccessToken } from '#api_util/jwt.js'
 import { requireAuth } from '#api_util/auth_middleware.js'
+import base from '#api_util/base.js'
+import db from '#api_util/db.js'
+import { verifyAccessToken } from '#api_util/jwt.js'
 
 // 核心初始化状态（Boolean 命名符合规则：ed 后缀，无 is 前缀）
 let dbInitialized = false

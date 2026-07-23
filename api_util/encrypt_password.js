@@ -5,11 +5,10 @@
  * 使用方法：
  * node encrypt_password.js "明文密码"
  */
-
 import crypto from 'crypto'
 import dotenv from 'dotenv'
-import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
+import { fileURLToPath } from 'url'
 
 // 加载环境变量
 const __filename = fileURLToPath(import.meta.url)

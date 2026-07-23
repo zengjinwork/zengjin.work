@@ -1,5 +1,5 @@
-import pkg from 'pg'
 import dns from 'dns'
+import pkg from 'pg'
 
 // 强制 Node.js (v17+) 在 DNS 解析时优先使用 IPv4，避免延迟
 dns.setDefaultResultOrder('ipv4first')

@@ -16,7 +16,7 @@ const actions = {
 
 			// 遵循规范：个人频道名称使用 "user_用户id"
 			const channel = `user_${targetId}`
-			
+
 			// 遵循规范：标准消息体结构
 			const payload = {
 				app: app || '$base',
@@ -24,8 +24,8 @@ const actions = {
 				data: {
 					title: title || '系统通知',
 					content: content || '这是一条测试消息',
-					timestamp: Date.now() // 可以放进 data 中用于排序或业务判断
-				}
+					timestamp: Date.now(), // 可以放进 data 中用于排序或业务判断
+				},
 			}
 
 			const result = await publish_message_ws(channel, payload)

@@ -1,5 +1,5 @@
 window.$config = {
-	app: 'control', 
+	app: 'control',
 	title: '后台控制系统',
 	map_center: {
 		//地图初始中心点: 临沂市

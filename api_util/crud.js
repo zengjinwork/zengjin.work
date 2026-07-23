@@ -1,5 +1,5 @@
-import db from './db.js'
 import base from './base.js'
+import db from './db.js'
 
 const crud = {
 	get: {},
@@ -177,10 +177,10 @@ crud.post.update = async options => {
 	try {
 		const successIds = []
 		for (const id of ids) {
-			const res = await db.query(`update ${table} set ${updates.map((update, i) => update.replace('?', `$${i + 1}`)).join(', ')} where id = $${updates.length + 1}`, [
-				...binds,
-				id,
-			])
+			const res = await db.query(
+				`update ${table} set ${updates.map((update, i) => update.replace('?', `$${i + 1}`)).join(', ')} where id = $${updates.length + 1}`,
+				[...binds, id],
+			)
 			if (res?.rowCount) {
 				successIds.push(id)
 			}
