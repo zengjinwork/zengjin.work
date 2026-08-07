@@ -12,6 +12,7 @@ import demoHandler from './_demo.js'
 import docHandler from './_doc.js'
 import fcHandler from './_fc.js'
 import fileHandler from './_file.js'
+import musicHandler from './_music.js'
 import noteHandler from './_note.js'
 import subHandler from './_sub.js'
 import classHandler from './_zone/mzl/class.js'
@@ -74,6 +75,9 @@ export default async function masterHandler(req, res) {
 
 				case 'sub':
 					return await subHandler(req, res)
+
+				case 'music':
+					return await musicHandler(req, res)
 
 				case 'zone':
 					const zoneName = fullAction[1] // 'mzl'
