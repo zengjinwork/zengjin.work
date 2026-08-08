@@ -17,6 +17,7 @@ async function ensure_dbInitialized_async() {
 		CREATE TABLE IF NOT EXISTS base_ai (
 			id VARCHAR(255) PRIMARY KEY,
 			name VARCHAR(255) NOT NULL,
+			domain VARCHAR(255),
 			provider VARCHAR(50) NOT NULL DEFAULT 'openai',
 			url VARCHAR(500) NOT NULL,
 			key VARCHAR(500) NOT NULL,
@@ -29,6 +30,9 @@ async function ensure_dbInitialized_async() {
 			"updateTime" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
+
+	// 自动补齐 domain 字段
+	await db.query('ALTER TABLE base_ai ADD COLUMN IF NOT EXISTS domain VARCHAR(255)')
 
 	// 创建会话表 (user_id 关联 base_user)
 	await db.query(`
@@ -202,7 +206,7 @@ const actions = {
 actions.get.models = async () => {
 	await ensure_dbInitialized_async()
 	try {
-		const result = await db.query('SELECT id, name, provider, model, "desc", "isReasoning", status FROM base_ai WHERE status = 1 ORDER BY sort ASC')
+		const result = await db.query('SELECT id, name, domain, provider, model, "desc", "isReasoning", status FROM base_ai WHERE status = 1 ORDER BY sort ASC')
 		return base.respSuccess({
 			data: base.formatDbRows(result.rows),
 		})
@@ -214,12 +218,49 @@ actions.get.models = async () => {
 /**
  * [管理端] 获取完整模型配置列表 (含 url 和 key)
  */
-actions.get.admin_models = requireAuth(async () => {
+actions.get.admin_models = requireAuth(async ({ query }) => {
 	await ensure_dbInitialized_async()
 	try {
-		const result = await db.query('SELECT * FROM base_ai ORDER BY sort ASC')
+		const current = parseInt(query?.current || query?.pageNum || query?.page) || 1
+		const pageSize = parseInt(query?.pageSize) || 20
+		const offset = (current - 1) * pageSize
+
+		const wheres = []
+		const binds = []
+		let idx = 1
+
+		if (query?.name) {
+			wheres.push(`(name ILIKE $${idx} OR model ILIKE $${idx})`)
+			binds.push(`%${query.name}%`)
+			idx++
+		}
+
+		if (query?.provider) {
+			wheres.push(`provider = $${idx}`)
+			binds.push(query.provider)
+			idx++
+		}
+
+		if (query?.status !== undefined && query?.status !== '') {
+			wheres.push(`status = $${idx}`)
+			binds.push(parseInt(query.status))
+			idx++
+		}
+
+		const whereStr = wheres.length ? `WHERE ${wheres.join(' AND ')}` : ''
+
+		const countRes = await db.query(`SELECT COUNT(*) FROM base_ai ${whereStr}`, binds)
+		const total = parseInt(countRes.rows[0]?.count) || 0
+
+		const listRes = await db.query(`SELECT * FROM base_ai ${whereStr} ORDER BY sort ASC, "createTime" DESC LIMIT $${idx} OFFSET $${idx + 1}`, [
+			...binds,
+			pageSize,
+			offset,
+		])
+
 		return base.respSuccess({
-			data: base.formatDbRows(result.rows),
+			data: base.formatDbRows(listRes.rows),
+			total,
 		})
 	} catch (error) {
 		return base.respFailure({ msg: `获取模型失败: ${error.message}` })
@@ -231,7 +272,7 @@ actions.get.admin_models = requireAuth(async () => {
  */
 actions.post.admin_models_save = requireAuth(async ({ body }) => {
 	await ensure_dbInitialized_async()
-	const { id, name, provider, url, key, model, desc, status = 1, isReasoning = 0, sort = 0 } = body
+	const { id, name, domain, provider, url, key, model, desc, status = 1, isReasoning = 0, sort = 0 } = body
 	const invalids = base.checkValids(body, ['name', 'provider', 'url', 'key', 'model'])
 	if (invalids) {
 		return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
@@ -247,20 +288,20 @@ actions.post.admin_models_save = requireAuth(async ({ body }) => {
 			await db.query(
 				`
 				UPDATE base_ai 
-				SET name = $2, provider = $3, url = $4, key = $5, model = $6, "desc" = $7, status = $8, "isReasoning" = $9, sort = $10, "updateTime" = $11
+				SET name = $2, domain = $3, provider = $4, url = $5, key = $6, model = $7, "desc" = $8, status = $9, "isReasoning" = $10, sort = $11, "updateTime" = $12
 				WHERE id = $1
 			`,
-				[finalId, name, provider, url, key, model, desc || '', status, isReasoning, sort, nowTime],
+				[finalId, name, domain || '', provider, url, key, model, desc || '', status, isReasoning, sort, nowTime],
 			)
 			return base.respSuccess({ msg: '更新模型成功', data: finalId })
 		} else {
 			// 新增
 			await db.query(
 				`
-				INSERT INTO base_ai (id, name, provider, url, key, model, "desc", status, "isReasoning", sort, "createTime", "updateTime")
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+				INSERT INTO base_ai (id, name, domain, provider, url, key, model, "desc", status, "isReasoning", sort, "createTime", "updateTime")
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
 			`,
-				[finalId, name, provider, url, key, model, desc || '', status, isReasoning, sort, nowTime],
+				[finalId, name, domain || '', provider, url, key, model, desc || '', status, isReasoning, sort, nowTime],
 			)
 			return base.respSuccess({ msg: '创建模型成功', data: finalId })
 		}
@@ -596,13 +637,15 @@ actions.post.chat = async ({ req, resp, body }) => {
 				const assistantMsgId = base.getId()
 				const createTime = base.getTime()
 
+				const displayModelName = modelConfig ? `${modelConfig.name} [${modelConfig.provider}]` : modelId
+
 				// 异步无等待写入数据库
 				db.query(
 					`
 					INSERT INTO base_ai_message (id, "sessionId", role, content, "modelId", "createTime")
 					VALUES ($1, $2, $3, $4, $5, $6)
 				`,
-					[userMsgId, sessionId, 'user', lastUserMsg.content, modelId, createTime],
+					[userMsgId, sessionId, 'user', lastUserMsg.content, displayModelName, createTime],
 				).catch(err => {
 					console.error('[Async DB log user message failed]', err)
 				})
@@ -612,7 +655,7 @@ actions.post.chat = async ({ req, resp, body }) => {
 					INSERT INTO base_ai_message (id, "sessionId", role, content, "reasoningContent", "modelId", "createTime")
 					VALUES ($1, $2, $3, $4, $5, $6, $7)
 				`,
-					[assistantMsgId, sessionId, 'assistant', completeContent, completeReasoning, modelId, createTime],
+					[assistantMsgId, sessionId, 'assistant', completeContent, completeReasoning, displayModelName, createTime],
 				).catch(err => {
 					console.error('[Async DB log assistant message failed]', err)
 				})
