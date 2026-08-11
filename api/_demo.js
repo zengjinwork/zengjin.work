@@ -69,6 +69,35 @@ actions.get.auth = async options => {
 }
 
 /**
+ * 获取 Firebase reCAPTCHA Site Key 配置
+ * GET /api/demo/recaptcha_config
+ */
+actions.get.recaptcha_config = async () => {
+	const apiKey = process.env.FIREBASE_WEB_API_KEY
+	if (!apiKey) {
+		return base.respFailure({ msg: '服务器缺少 FIREBASE_WEB_API_KEY 配置' })
+	}
+
+	try {
+		const response = await fetch(`https://identitytoolkit.googleapis.com/v1/recaptchaParams?key=${apiKey}`)
+		const data = await response.json()
+		if (data.error) {
+			return base.respFailure({ msg: data.error.message })
+		}
+		// recaptchaParams 返回官方真实的 recaptchaSiteKey 与 recaptchaStoken
+		return base.respSuccess({
+			data: {
+				recaptchaSiteKey: data.recaptchaSiteKey || '',
+				recaptchaStoken: data.recaptchaStoken || '',
+				version: data.version || 'V2_INVISIBLE',
+			},
+		})
+	} catch (error) {
+		return base.respFailure({ msg: `获取配置失败: ${error.message}` })
+	}
+}
+
+/**
  * 发送手机短信验证码
  * POST /api/demo/send_sms
  */
@@ -79,7 +108,7 @@ actions.post.send_sms = async ({ body }) => {
 		return base.respFailure({ msg: '手机号不能为空' })
 	}
 
-	// 1. 若提供了 ALTCHA payload，进行人机验证
+	// 1. 若提供了 ALTCHA payload，进行二次双重人机校验（安全防护）
 	if (altchaPayload) {
 		const hmacKey = process.env.CRYPTO_SECRET
 		if (hmacKey) {
@@ -91,7 +120,7 @@ actions.post.send_sms = async ({ body }) => {
 				}
 			} catch (err) {
 				console.error('ALTCHA 校验异常:', err)
-				return base.respFailure({ msg: '人机验证校验异常' })
+				return base.respFailure({ msg: 'ALTCHA 人机验证校验异常' })
 			}
 		}
 	}
@@ -102,13 +131,19 @@ actions.post.send_sms = async ({ body }) => {
 		return base.respFailure({ msg: '服务器缺少 FIREBASE_WEB_API_KEY 配置' })
 	}
 
+	if (!recaptchaToken) {
+		return base.respFailure({ msg: '未包含有效的 reCAPTCHA 人机凭证' })
+	}
+
 	try {
 		const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=${apiKey}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				phoneNumber,
-				recaptchaToken: recaptchaToken || 'SERVER_BYPASS',
+				captchaResponse: recaptchaToken,
+				recaptchaToken: recaptchaToken,
+				clientType: 'CLIENT_TYPE_WEB',
 			}),
 		})
 
@@ -131,6 +166,7 @@ actions.post.send_sms = async ({ body }) => {
 /**
  * 校验手机短信验证码
  * POST /api/demo/verify_code
+ * @deprecated 已被 verify_token 替代，保留作兼容备用
  */
 actions.post.verify_code = async ({ body }) => {
 	const { sessionInfo, code } = body || {}
@@ -145,7 +181,6 @@ actions.post.verify_code = async ({ body }) => {
 	}
 
 	try {
-		// 1. 请求 Firebase REST API 校验验证码
 		const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPhoneNumber?key=${apiKey}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -158,7 +193,6 @@ actions.post.verify_code = async ({ body }) => {
 			return base.respFailure({ msg: `验证失败: ${data.error.message}` })
 		}
 
-		// 2. 尝试使用 Firebase Admin SDK 签发 Custom Token
 		let customToken = null
 		try {
 			const admin = get_firebase_admin()
@@ -185,6 +219,45 @@ actions.post.verify_code = async ({ body }) => {
 	}
 }
 
+/**
+ * 校验前端登录成功后颁发的 Firebase idToken，并签发系统级 Custom Token
+ * POST /api/demo/verify_token
+ */
+actions.post.verify_token = async ({ body }) => {
+	const { idToken } = body || {}
+
+	if (!idToken) {
+		return base.respFailure({ msg: 'idToken 不能为空' })
+	}
+
+	try {
+		const admin = get_firebase_admin()
+		if (!admin || !admin.apps.length) {
+			return base.respFailure({ msg: 'Firebase Admin SDK 未正常初始化，请检查服务端环境变量' })
+		}
+
+		// 使用 Firebase Admin 验证前端传来的 idToken
+		const decodedToken = await admin.auth().verifyIdToken(idToken)
+
+		// 签发 Custom Token（含手机号 claim）
+		const customToken = await admin.auth().createCustomToken(decodedToken.uid, {
+			phoneNumber: decodedToken.phone_number,
+		})
+
+		return base.respSuccess({
+			msg: '身份验证成功',
+			data: {
+				uid: decodedToken.uid,
+				phoneNumber: decodedToken.phone_number,
+				customToken,
+			},
+		})
+	} catch (error) {
+		console.error('Firebase idToken 验证失败:', error)
+		return base.respFailure({ msg: `身份验证失败: ${error.message}` })
+	}
+}
+
 // 这是被总开关包含在内的隐形控制器模块
 export default async (req, resp) => {
 	base.req = req
@@ -206,4 +279,3 @@ export default async (req, resp) => {
 		})
 	}
 }
-
