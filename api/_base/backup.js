@@ -26,6 +26,50 @@ async function upsert_backup_log_async(pool, logObj) {
 	await pool.query(query, binds)
 }
 
+// 备份日志表 DDL（双端幂等创建）
+const LOG_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS "base_backup" (
+    "id" varchar(255) NOT NULL,
+    "type" varchar(50) NOT NULL,
+    "source" varchar(100) NOT NULL,
+    "target" varchar(100) NOT NULL,
+    "status" smallint DEFAULT 0,
+    "extra" jsonb DEFAULT '{}'::jsonb,
+    "insertTime" timestamptz DEFAULT now(),
+    "updateTime" timestamptz,
+    PRIMARY KEY ("id")
+  );
+`
+
+// 固定 id 的诊断标记：鉴权失败 / 连接池缺失这类「没进主流程」的故障也落一条可见日志。
+// 用固定 id 做 upsert（最多一行），既让停机可被观测，又不被未授权扫描流量刷爆表。
+// 真实事故：CRON_SECRET 缺失导致备份静默 401、49 天无任何记录才被发现。
+const GATE_AUTH_ID = '__auth_gate'
+const GATE_POOL_ID = '__pool_gate'
+
+// 尽力写一条 status=2 诊断标记（写 source/target 中能连上的池；全连不上则 console.error 兜底）
+async function writeGateMark(logObj, markId, reason) {
+	const now = base.getTime()
+	const pools = [getPool(logObj.source), getPool(logObj.target)].filter(Boolean)
+	for (const pool of pools) {
+		try {
+			await pool.query(LOG_TABLE_DDL)
+			await upsert_backup_log_async(pool, {
+				id: markId,
+				type: logObj.type,
+				source: logObj.source,
+				target: logObj.target,
+				status: 2,
+				insertTime: logObj.insertTime, // 首次失败时间（upsert 不覆盖，保留历史起点）
+				updateTime: now,
+				extra: { error: reason, lastFailureAt: now, message: `备份未执行：${reason}` },
+			})
+		} catch (e) {
+			console.error(`[备份引擎] 写入诊断标记 ${markId} 失败: ${e.message}`)
+		}
+	}
+}
+
 export default async (req, resp) => {
 	// 初始化 base 上下文
 	base.req = req
@@ -35,6 +79,19 @@ export default async (req, resp) => {
 	const activeDb = (process.env.DB || 'neon').toLowerCase()
 	const sourceName = activeDb
 	const targetName = activeDb === 'neon' ? 'supabase' : 'neon'
+
+	// 准备初始日志对象（提前创建：鉴权失败/连接池缺失分支也要能写失败标记）
+	const logId = base.getId()
+	const insertTimeStr = base.getTime()
+	const logObj = {
+		id: logId,
+		type: 'db',
+		source: sourceName,
+		target: targetName,
+		status: 0, // 进行中
+		insertTime: insertTimeStr,
+		extra: {},
+	}
 
 	// 1. 鉴权：生产环境下进行双通道校验 (Vercel Cron 校验 或 用户登录 Token 校验)
 	const isProd = process.env.NODE_ENV === 'production'
@@ -49,7 +106,9 @@ export default async (req, resp) => {
 		if (!isAuthorized) {
 			const isUserAuth = await checkAuth(req, resp)
 			if (!isUserAuth) {
-				// checkAuth 内部已向客户端返回 401，这里直接拦截截断
+				// checkAuth 内部已向客户端返回 401，这里不再静默截断——写一条 status=2 诊断标记，
+				// 让「cron 已死」可被观测（真实事故：CRON_SECRET 缺失无声 49 天）
+				await writeGateMark(logObj, GATE_AUTH_ID, '鉴权失败：缺少或错误的 CRON_SECRET / 登录令牌')
 				return
 			}
 			isAuthorized = true
@@ -63,39 +122,18 @@ export default async (req, resp) => {
 	const targetPool = getPool(targetName)
 
 	if (!sourcePool || !targetPool) {
+		await writeGateMark(
+			logObj,
+			GATE_POOL_ID,
+			`连接池初始化失败（source[${sourceName}]=${!!sourcePool}，target[${targetName}]=${!!targetPool}），请检查环境变量配置`,
+		)
 		return base.respFailure({ msg: '数据库连接池初始化失败，请检查环境变量配置。' })
-	}
-
-	// 准备初始日志对象
-	const logId = base.getId()
-	const insertTimeStr = base.getTime()
-	const logObj = {
-		id: logId,
-		type: 'db',
-		source: sourceName,
-		target: targetName,
-		status: 0, // 进行中
-		insertTime: insertTimeStr,
-		extra: {},
 	}
 
 	try {
 		// 3. 自动创建备份日志表 (如果不存在的话，双端确保)
-		const createLogTableDdl = `
-      CREATE TABLE IF NOT EXISTS "base_backup" (
-        "id" varchar(255) NOT NULL,
-        "type" varchar(50) NOT NULL,
-        "source" varchar(100) NOT NULL,
-        "target" varchar(100) NOT NULL,
-        "status" smallint DEFAULT 0,
-        "extra" jsonb DEFAULT '{}'::jsonb,
-        "insertTime" timestamptz DEFAULT now(),
-        "updateTime" timestamptz,
-        PRIMARY KEY ("id")
-      );
-    `
-		await sourcePool.query(createLogTableDdl)
-		await targetPool.query(createLogTableDdl)
+		await sourcePool.query(LOG_TABLE_DDL)
+		await targetPool.query(LOG_TABLE_DDL)
 
 		// 4. 在主库中插入本次“进行中”状态的日志记录
 		await upsert_backup_log_async(sourcePool, logObj)
