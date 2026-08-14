@@ -1,4 +1,5 @@
 import demoHandler from '../_demo.js'
+import firebaseHandler from '../_firebase.js'
 import noteHandler from '../_note.js'
 import classHandler from '../_zone/mzl/class.js'
 import studentHandler from '../_zone/mzl/student.js'
@@ -33,6 +34,9 @@ export default async (req, res) => {
 
 			case 'demo':
 				return await demoHandler(req, res)
+
+			case 'firebase':
+				return await firebaseHandler(req, res)
 
 			case 'zone':
 				// 对于 zone 模块，URL 为 /api/zone/mzl/class/select

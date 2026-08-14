@@ -9,6 +9,7 @@ import translateHandler from './_base/translate.js'
 import userHandler from './_base/user.js'
 import wsdemoHandler from './_base/wsdemo.js'
 import demoHandler from './_demo.js'
+import firebaseHandler from './_firebase.js'
 import docHandler from './_doc.js'
 import fcHandler from './_fc.js'
 import fileHandler from './_file.js'
@@ -41,6 +42,9 @@ export default async function masterHandler(req, res) {
 
 				case 'demo':
 					return await demoHandler(req, res)
+
+				case 'firebase':
+					return await firebaseHandler(req, res)
 
 				case 'base':
 					const subModule = fullAction[1] // 例如 'login' 或者是 'dict'

@@ -1,3 +1,5 @@
+import { decide_searchByRule } from '#api_util/ai_search.js'
+import { build_titleMessages, clean_localTitle, clean_titleText } from '#api_util/ai_title.js'
 import { requireAuth } from '#api_util/auth_middleware.js'
 import base from '#api_util/base.js'
 import db from '#api_util/db.js'
@@ -26,6 +28,7 @@ async function ensure_dbInitialized_async() {
 			status INT NOT NULL DEFAULT 1,
 			"isReasoning" INT NOT NULL DEFAULT 0,
 			sort INT NOT NULL DEFAULT 0,
+			speed INT NOT NULL DEFAULT 2,
 			"createTime" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			"updateTime" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
@@ -33,6 +36,12 @@ async function ensure_dbInitialized_async() {
 
 	// 自动补齐 domain 字段
 	await db.query('ALTER TABLE base_ai ADD COLUMN IF NOT EXISTS domain VARCHAR(255)')
+
+	// 自动补齐联网搜索能力字段 (1=支持/允许联网搜索, 0=关闭)
+	await db.query('ALTER TABLE base_ai ADD COLUMN IF NOT EXISTS "search" INT NOT NULL DEFAULT 1')
+
+	// 自动补齐响应速度字段 (1=快 2=中 3=慢, 前台下拉展示对应标签)
+	await db.query('ALTER TABLE base_ai ADD COLUMN IF NOT EXISTS "speed" INT NOT NULL DEFAULT 2')
 
 	// 创建会话表 (user_id 关联 base_user)
 	await db.query(`
@@ -45,6 +54,9 @@ async function ensure_dbInitialized_async() {
 			"updateTime" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
+
+	// 自动补齐标题来源字段 (auto=自动提炼 / manual=用户手动改名, 手动后自动机制永不覆盖)
+	await db.query('ALTER TABLE base_ai_session ADD COLUMN IF NOT EXISTS "titleSource" VARCHAR(20) NOT NULL DEFAULT \'auto\'')
 
 	// 创建消息表
 	await db.query(`
@@ -63,6 +75,7 @@ async function ensure_dbInitialized_async() {
 	const countRes = await db.query('SELECT COUNT(*) FROM base_ai')
 	if (parseInt(countRes.rows[0].count) === 0) {
 		const presets = [
+			// [id, name, provider, url, key, model, desc, status, isReasoning, sort, speed]
 			[
 				'deepseek-v4-pro',
 				'DeepSeek v4 Pro',
@@ -74,6 +87,7 @@ async function ensure_dbInitialized_async() {
 				1,
 				0,
 				10,
+				2,
 			],
 			[
 				'deepseek-v4-flash',
@@ -86,6 +100,7 @@ async function ensure_dbInitialized_async() {
 				1,
 				0,
 				20,
+				1,
 			],
 			[
 				'agnes-2.0-flash',
@@ -98,6 +113,7 @@ async function ensure_dbInitialized_async() {
 				1,
 				0,
 				30,
+				1,
 			],
 			[
 				'nex-n2-pro',
@@ -110,6 +126,7 @@ async function ensure_dbInitialized_async() {
 				1,
 				1,
 				40,
+				3,
 			],
 			[
 				'deepseek-r1-qwen-8b',
@@ -122,6 +139,7 @@ async function ensure_dbInitialized_async() {
 				1,
 				1,
 				50,
+				3,
 			],
 			[
 				'qwen3.5-4b',
@@ -134,6 +152,7 @@ async function ensure_dbInitialized_async() {
 				1,
 				0,
 				60,
+				2,
 			],
 			[
 				'hunyuan-mt-7b',
@@ -146,6 +165,7 @@ async function ensure_dbInitialized_async() {
 				1,
 				0,
 				70,
+				2,
 			],
 			[
 				'bge-m3',
@@ -158,13 +178,14 @@ async function ensure_dbInitialized_async() {
 				1,
 				0,
 				80,
+				2,
 			],
 		]
 		for (const p of presets) {
 			await db.query(
 				`
-				INSERT INTO base_ai (id, name, provider, url, key, model, "desc", status, "isReasoning", sort)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+				INSERT INTO base_ai (id, name, provider, url, key, model, "desc", status, "isReasoning", sort, speed)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 			`,
 				p,
 			)
@@ -193,6 +214,153 @@ function select_authUser(req) {
 	}
 }
 
+// ------------------------------------ 联网搜索辅助 ------------------------------------
+
+/**
+ * 提取最近一条用户提问作为搜索关键词
+ */
+function extract_searchQuery(messages) {
+	if (!Array.isArray(messages)) return ''
+	for (let i = messages.length - 1; i >= 0; i--) {
+		if (messages[i].role === 'user' && messages[i].content) {
+			return messages[i].content.trim().slice(0, 300)
+		}
+	}
+	return ''
+}
+
+/**
+ * 联网搜索参数注入
+ * 1) 上游原生支持搜索 (OpenRouter/Aihubmix) 时直接注入官方参数
+ * 2) 其余上游通过网关侧搜索 (需配置 SEARCH_API_KEY) 将实时结果拼入上下文, 不依赖上游能力
+ */
+async function enable_webSearch_async(targetBody, modelConfig, messages) {
+	const url = modelConfig.url || ''
+
+	// 原生支持: OpenRouter Web 插件
+	if (url.includes('openrouter.ai')) {
+		targetBody.plugins = [{ id: 'web' }]
+		return
+	}
+
+	// 原生支持: Aihubmix LLM Search
+	if (url.includes('aihubmix.com')) {
+		targetBody.web_search_options = {}
+		return
+	}
+
+	// 网关侧搜索兜底 (通用方案, 需要配置 SEARCH_API_KEY)
+	const searchApiKey = process.env.SEARCH_API_KEY || process.env.TAVILY_API_KEY
+	if (!searchApiKey) return
+
+	const query = extract_searchQuery(messages)
+	if (!query) return
+
+	try {
+		const results = await search_tavily_async(query, searchApiKey)
+		if (results.length > 0) {
+			targetBody.messages = [{ role: 'system', content: build_searchContext(results) }, ...messages]
+		}
+	} catch (error) {
+		// 搜索失败不阻断对话, 仅降级为无联网搜索
+		console.warn('[AI Search] 网关侧搜索失败:', error.message)
+	}
+}
+
+/**
+ * 调用 Tavily 搜索接口获取实时信息
+ */
+async function search_tavily_async(query, apiKey) {
+	const resp = await fetch('https://api.tavily.com/search', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			api_key: apiKey,
+			query,
+			search_depth: 'basic',
+			max_results: 5,
+			include_answer: true,
+		}),
+	})
+	if (!resp.ok) {
+		throw new Error(`Tavily 接口异常 HTTP ${resp.status}`)
+	}
+	const data = await resp.json()
+	const results = []
+	if (data.answer) {
+		results.push({ title: 'AI 摘要', content: data.answer, url: '' })
+	}
+	for (const item of data.results || []) {
+		results.push({
+			title: item.title || '无标题',
+			content: (item.content || '').slice(0, 500),
+			url: item.url || '',
+		})
+	}
+	return results
+}
+
+/**
+ * 将搜索结果组装为注入上下文的 system 消息
+ */
+function build_searchContext(results) {
+	const lines = ['以下是联网搜索到的实时信息，请基于这些信息并结合你的知识回答用户的问题：']
+	results.forEach((item, index) => {
+		lines.push(`${index + 1}. ${item.title}${item.url ? `（来源: ${item.url}）` : ''}\n${item.content}`)
+	})
+	return lines.join('\n\n')
+}
+
+// ------------------------------------ 联网搜索意图判定 ------------------------------------
+
+const CLASSIFY_SYSTEM_PROMPT =
+	'你是搜索意图分类器。只判断用户最新提问是否需要"实时联网信息"才能更好回答，返回且仅返回一个单词：SEARCH 或 NO_SEARCH 或 UNCERTAIN，不要输出任何其他内容。'
+
+/**
+ * ⑤ 小模型分类器: 判断模糊问题是否需要实时搜索
+ * 复用当前模型做一次极小的非流式判定; 异常/超时/非法返回统一降级为 NO_SEARCH (安全优先, 不浪费搜索额度)
+ */
+async function classify_searchIntent_async(modelConfig, messages) {
+	// 携带最近若干轮上下文, 解决多轮对话中的省略表达 ("它现在多少钱?")
+	const context = (messages || [])
+		.slice(-5)
+		.map(m => `${m.role === 'user' ? '用户' : '助手'}: ${(m.content || '').slice(0, 200)}`)
+		.join('\n')
+	const classifyMessages = [
+		{ role: 'system', content: CLASSIFY_SYSTEM_PROMPT },
+		{ role: 'user', content: `对话上下文：\n${context}\n\n请判断最新提问是否需要实时联网搜索。` },
+	]
+	const controller = new AbortController()
+	const timeout = setTimeout(() => controller.abort(), 5000)
+	try {
+		const resp = await fetch(modelConfig.url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${modelConfig.key}` },
+			body: JSON.stringify({ model: modelConfig.model, messages: classifyMessages, max_tokens: 32, temperature: 0, stream: false }),
+			signal: controller.signal,
+		})
+		if (!resp.ok) return 'NO_SEARCH'
+		const data = await resp.json()
+		const verdict = (data.choices?.[0]?.message?.content || '').trim()
+		return ['SEARCH', 'NO_SEARCH', 'UNCERTAIN'].includes(verdict) ? verdict : 'NO_SEARCH'
+	} catch (error) {
+		console.warn('[AI Search] 意图分类器异常, 默认不搜索:', error.message)
+		return 'NO_SEARCH'
+	} finally {
+		clearTimeout(timeout)
+	}
+}
+
+/**
+ * 自动模式: 规则快路径 + 小模型分类器兜底, 输出是否执行搜索
+ */
+async function decide_webSearch_async(modelConfig, messages) {
+	const query = extract_searchQuery(messages)
+	const ruleResult = decide_searchByRule(query)
+	if (ruleResult !== 'UNCERTAIN') return ruleResult === 'SEARCH'
+	return (await classify_searchIntent_async(modelConfig, messages)) === 'SEARCH'
+}
+
 // ------------------------------------ API Actions ------------------------------------
 
 const actions = {
@@ -206,7 +374,10 @@ const actions = {
 actions.get.models = async () => {
 	await ensure_dbInitialized_async()
 	try {
-		const result = await db.query('SELECT id, name, domain, provider, model, "desc", "isReasoning", status FROM base_ai WHERE status = 1 ORDER BY sort ASC')
+		// 排序与后台列表一致 (sort ASC, createTime DESC 次级), 保证前台下拉顺序严格跟随后台配置
+		const result = await db.query(
+			'SELECT id, name, domain, provider, model, "desc", "isReasoning", search, status, speed FROM base_ai WHERE status = 1 ORDER BY sort ASC, "createTime" DESC',
+		)
 		return base.respSuccess({
 			data: base.formatDbRows(result.rows),
 		})
@@ -272,7 +443,9 @@ actions.get.admin_models = requireAuth(async ({ query }) => {
  */
 actions.post.admin_models_save = requireAuth(async ({ body }) => {
 	await ensure_dbInitialized_async()
-	const { id, name, domain, provider, url, key, model, desc, status = 1, isReasoning = 0, sort = 0 } = body
+	const { id, name, domain, provider, url, key, model, desc, status = 1, isReasoning = 0, search = 1, sort = 0 } = body
+	// 响应速度: 1=快 2=中 3=慢, 非法值归一为默认"中"
+	const speed = [1, 2, 3].includes(parseInt(body.speed)) ? parseInt(body.speed) : 2
 	const invalids = base.checkValids(body, ['name', 'provider', 'url', 'key', 'model'])
 	if (invalids) {
 		return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
@@ -287,21 +460,21 @@ actions.post.admin_models_save = requireAuth(async ({ body }) => {
 			// 更新
 			await db.query(
 				`
-				UPDATE base_ai 
-				SET name = $2, domain = $3, provider = $4, url = $5, key = $6, model = $7, "desc" = $8, status = $9, "isReasoning" = $10, sort = $11, "updateTime" = $12
+				UPDATE base_ai
+				SET name = $2, domain = $3, provider = $4, url = $5, key = $6, model = $7, "desc" = $8, status = $9, "isReasoning" = $10, search = $11, sort = $12, speed = $13, "updateTime" = $14
 				WHERE id = $1
 			`,
-				[finalId, name, domain || '', provider, url, key, model, desc || '', status, isReasoning, sort, nowTime],
+				[finalId, name, domain || '', provider, url, key, model, desc || '', status, isReasoning, search, sort, speed, nowTime],
 			)
 			return base.respSuccess({ msg: '更新模型成功', data: finalId })
 		} else {
 			// 新增
 			await db.query(
 				`
-				INSERT INTO base_ai (id, name, domain, provider, url, key, model, "desc", status, "isReasoning", sort, "createTime", "updateTime")
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
+				INSERT INTO base_ai (id, name, domain, provider, url, key, model, "desc", status, "isReasoning", search, sort, speed, "createTime", "updateTime")
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14)
 			`,
-				[finalId, name, domain || '', provider, url, key, model, desc || '', status, isReasoning, sort, nowTime],
+				[finalId, name, domain || '', provider, url, key, model, desc || '', status, isReasoning, search, sort, speed, nowTime],
 			)
 			return base.respSuccess({ msg: '创建模型成功', data: finalId })
 		}
@@ -332,7 +505,16 @@ actions.get.sessions = requireAuth(async ({ req }) => {
 	await ensure_dbInitialized_async()
 	const { userId } = req.user
 	try {
-		const result = await db.query('SELECT * FROM base_ai_session WHERE user_id = $1 ORDER BY "updateTime" DESC', [userId])
+		// 附带消息条数 msgCount, 便于前端过滤历史遗留的空会话 (延迟创建后不再产生新空会话)
+		const result = await db.query(
+			`
+			SELECT s.*, (SELECT COUNT(*) FROM base_ai_message m WHERE m."sessionId" = s.id) AS "msgCount"
+			FROM base_ai_session s
+			WHERE s.user_id = $1
+			ORDER BY s."updateTime" DESC
+		`,
+			[userId],
+		)
 		return base.respSuccess({
 			data: base.formatDbRows(result.rows),
 		})
@@ -348,6 +530,7 @@ actions.post.session_save = requireAuth(async ({ req, body }) => {
 	await ensure_dbInitialized_async()
 	const { userId } = req.user
 	const { id, title, modelId } = body
+	const titleSource = body.titleSource === 'manual' ? 'manual' : 'auto'
 	const invalids = base.checkValids(body, ['title', 'modelId'])
 	if (invalids) {
 		return base.respFailure({ msg: `缺少参数: ${invalids}` })
@@ -362,21 +545,21 @@ actions.post.session_save = requireAuth(async ({ req, body }) => {
 			// 更新
 			await db.query(
 				`
-				UPDATE base_ai_session 
-				SET title = $3, "modelId" = $4, "updateTime" = $5
+				UPDATE base_ai_session
+				SET title = $3, "modelId" = $4, "titleSource" = $5, "updateTime" = $6
 				WHERE id = $1 AND user_id = $2
 			`,
-				[checkId, userId, title, modelId, nowTime],
+				[checkId, userId, title, modelId, titleSource, nowTime],
 			)
 			return base.respSuccess({ msg: '会话更新成功', data: { id: checkId } })
 		} else {
 			// 新增
 			await db.query(
 				`
-				INSERT INTO base_ai_session (id, user_id, title, "modelId", "createTime", "updateTime")
-				VALUES ($1, $2, $3, $4, $5, $5)
+				INSERT INTO base_ai_session (id, user_id, title, "modelId", "titleSource", "createTime", "updateTime")
+				VALUES ($1, $2, $3, $4, $5, $6, $6)
 			`,
-				[checkId, userId, title, modelId, nowTime],
+				[checkId, userId, title, modelId, titleSource, nowTime],
 			)
 			return base.respSuccess({ msg: '会话创建成功', data: { id: checkId } })
 		}
@@ -402,11 +585,11 @@ actions.post.sessions_sync = requireAuth(async ({ req, body }) => {
 			const nowTime = base.getTime()
 			await db.query(
 				`
-				INSERT INTO base_ai_session (id, user_id, title, "modelId", "createTime", "updateTime")
-				VALUES ($1, $2, $3, $4, $5, $5)
+				INSERT INTO base_ai_session (id, user_id, title, "modelId", "titleSource", "createTime", "updateTime")
+				VALUES ($1, $2, $3, $4, $5, $6, $6)
 				ON CONFLICT (id) DO NOTHING
 			`,
-				[s.id, userId, s.title, s.modelId, nowTime],
+				[s.id, userId, s.title, s.modelId, s.titleSource === 'manual' ? 'manual' : 'auto', nowTime],
 			)
 
 			// 2. 插入对应的消息历史
@@ -462,8 +645,15 @@ actions.get.messages = requireAuth(async ({ req, query }) => {
 			return base.respFailure({ msg: '无权查看此会话或会话不存在' })
 		}
 
+		// 一轮问答的 user 与 assistant 共用同一个秒级 createTime, 同秒并列时排序不稳定会导致顺序错乱;
+		// 以 role 作为次级排序键, 保证同一时间戳内 user 消息恒在 assistant 回复之前
 		const result = await db.query(
-			'SELECT id, role, content, "reasoningContent", "modelId", "createTime" FROM base_ai_message WHERE "sessionId" = $1 ORDER BY "createTime" ASC',
+			`
+			SELECT id, role, content, "reasoningContent", "modelId", "createTime"
+			FROM base_ai_message
+			WHERE "sessionId" = $1
+			ORDER BY "createTime" ASC, CASE WHEN role = 'user' THEN 0 ELSE 1 END
+		`,
 			[sessionId],
 		)
 		return base.respSuccess({
@@ -480,7 +670,7 @@ actions.get.messages = requireAuth(async ({ req, query }) => {
  */
 actions.post.chat = async ({ req, resp, body }) => {
 	await ensure_dbInitialized_async()
-	const { modelId, messages, sessionId } = body
+	const { modelId, messages, sessionId, searchMode: rawSearchMode } = body
 
 	if (!modelId || !Array.isArray(messages)) {
 		return base.respFailure({ msg: '必要参数模型ID或上下文缺失' })
@@ -501,6 +691,15 @@ actions.post.chat = async ({ req, resp, body }) => {
 		model: modelConfig.model,
 		messages: messages,
 		stream: true,
+	}
+
+	// 3.1 联网搜索: 三档模式 (auto 自动判定 / always 始终搜索 / never 从不搜索) + 模型级能力开关
+	const searchMode = ['auto', 'always', 'never'].includes(rawSearchMode) ? rawSearchMode : 'auto'
+	if (searchMode !== 'never' && modelConfig.search !== 0) {
+		const shouldSearch = searchMode === 'always' || (await decide_webSearch_async(modelConfig, messages))
+		if (shouldSearch) {
+			await enable_webSearch_async(targetBody, modelConfig, messages)
+		}
 	}
 
 	const controller = new AbortController()
@@ -678,6 +877,56 @@ actions.post.chat = async ({ req, resp, body }) => {
 			resp.write(`data: ${JSON.stringify({ error: `流传输异常中断: ${error.message}` })}\n\n`)
 			resp.end()
 		}
+	}
+}
+
+/**
+ * [公用] 智能生成会话标题
+ * 复用当前模型对"首条用户消息 + 首条 AI 回复"做一次极小非流式提炼 (max_tokens: 64);
+ * 由前端在首轮回答完成后异步调用, 不阻塞主流程; 模型输出无效时降级为本地临时标题规则兜底。
+ */
+actions.post.title = async ({ body }) => {
+	const { modelId, userMessage, assistantMessage } = body
+	if (!modelId) return base.respFailure({ msg: '缺少模型ID' })
+
+	try {
+		await ensure_dbInitialized_async()
+		const modelRes = await db.query('SELECT * FROM base_ai WHERE id = $1 AND status = 1 LIMIT 1', [modelId])
+		const modelConfig = modelRes.rows[0]
+		if (!modelConfig) return base.respFailure({ msg: '模型不存在或已停用' })
+
+		let rawTitle = ''
+		const controller = new AbortController()
+		const timeout = setTimeout(() => controller.abort(), 8000)
+		try {
+			const resp = await fetch(modelConfig.url, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${modelConfig.key}` },
+				body: JSON.stringify({
+					model: modelConfig.model,
+					messages: build_titleMessages(userMessage, assistantMessage),
+					max_tokens: 64,
+					temperature: 0.7,
+					stream: false,
+				}),
+				signal: controller.signal,
+			})
+			if (resp.ok) {
+				const data = await resp.json()
+				rawTitle = data.choices?.[0]?.message?.content || ''
+			}
+		} catch (error) {
+			console.warn('[AI Title] 标题生成请求异常:', error.message)
+		} finally {
+			clearTimeout(timeout)
+		}
+
+		// 模型输出无效时降级为本地临时标题规则 (保证始终返回可用标题)
+		const title = clean_titleText(rawTitle) || clean_localTitle(userMessage)
+		if (!title) return base.respFailure({ msg: '标题生成失败' })
+		return base.respSuccess({ data: { title } })
+	} catch (error) {
+		return base.respFailure({ msg: `生成标题失败: ${error.message}` })
 	}
 }
 
