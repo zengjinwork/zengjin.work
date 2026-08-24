@@ -4,14 +4,14 @@ import express from 'express'
 import masterHandler from './api/index.js'
 
 const app = express()
-const PORT = 1232
+const PORT = 10001
 
 // 中间件：解析 JSON body 和 URL 编码 body
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 // Vercel 会在收到请求时处理 CORS，因此本地需要自己加一下，
-// 特别是 Vite preview 环境下访问 :1232
+// 特别是 Vite preview 环境下访问 :10001
 app.use((req, res, next) => {
 	res.header('Access-Control-Allow-Origin', '*')
 	res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')

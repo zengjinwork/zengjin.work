@@ -15,12 +15,12 @@ let config = {
 	// },
 	plugins: [basicSsl()],
 	preview: {
-		port: 1234,
+		port: 10002,
 		host: true,
 		// https: true,
 		proxy: {
 			'/api/': {
-				target: 'http://localhost:1232/',
+				target: 'http://localhost:10001/',
 				// target: 'https://zengjin.work/',
 				changeOrigin: true, // 是否改变源
 				secure: false, // 是否验证证书
