@@ -1,8 +1,11 @@
+import jwt from 'jsonwebtoken'
+
 import { requireAuth } from '#api_util/auth_middleware.js'
 import base from '#api_util/base.js'
 import { decryptPassword, encryptPassword, hashToken } from '#api_util/crypto.js'
 import db from '#api_util/db.js'
 import { generateAccessToken, generateRefreshToken } from '#api_util/jwt.js'
+import { check_smsVerifyCode, send_smsVerifyCode } from '#api_util/sms_alicloud.js'
 
 /**
  * 用户及身份认证相关接口
@@ -11,6 +14,9 @@ import { generateAccessToken, generateRefreshToken } from '#api_util/jwt.js'
  * POST /api/base/user/logout
  * POST /api/base/user/refresh
  * POST /api/base/user/update_password
+ * POST /api/base/user/send_sms_code
+ * POST /api/base/user/verify_sms_code
+ * POST /api/base/user/register
  */
 const actions = {
 	get: {
@@ -207,7 +213,10 @@ const actions = {
 			let users = []
 			let queryError = null
 			try {
-				const result = await db.query('SELECT id, username, password, phone, nickname, "status" FROM base_user WHERE username = $1 LIMIT 1', [username])
+				const result = await db.query(
+					'SELECT id, username, password, phone, nickname, "status" FROM base_user WHERE username = $1 OR phone = $1 LIMIT 1',
+					[username],
+				)
 				users = result.rows
 			} catch (err) {
 				queryError = err
@@ -302,7 +311,19 @@ const actions = {
 				.find(c => c.trim().startsWith('refreshToken='))
 				?.split('=')[1]
 
-			if (!refreshToken) return resp.status(401).json({ code: -1, msg: '未提供刷新令牌' })
+			const isProd = process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production'
+			const clearCookie = [
+				'refreshToken=',
+				'HttpOnly',
+				'Path=/',
+				'Max-Age=0',
+				isProd ? 'SameSite=None; Secure' : 'SameSite=Lax',
+			].join('; ')
+
+			if (!refreshToken) {
+				resp.setHeader('Set-Cookie', clearCookie)
+				return resp.status(401).json({ code: -1, msg: '未提供刷新令牌' })
+			}
 
 			const tokenHash = hashToken(refreshToken)
 			let sessions = []
@@ -317,6 +338,7 @@ const actions = {
 			}
 
 			if (queryError || !sessions || sessions.length === 0 || sessions[0].revokeTime || new Date(sessions[0].expireTime) < new Date()) {
+				resp.setHeader('Set-Cookie', clearCookie)
 				return resp.status(401).json({ code: -1, msg: '刷新令牌无效或已过期' })
 			}
 
@@ -330,7 +352,10 @@ const actions = {
 				userError = err
 			}
 
-			if (userError || !users || users.length === 0) return resp.status(401).json({ code: -1, msg: '用户不存在' })
+			if (userError || !users || users.length === 0) {
+				resp.setHeader('Set-Cookie', clearCookie)
+				return resp.status(401).json({ code: -1, msg: '用户不存在' })
+			}
 
 			const user = users[0]
 			try {
@@ -359,7 +384,6 @@ const actions = {
 				console.error('保存 session 失败:', err)
 			}
 
-			const isProd = process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production'
 			const cookieOptions = [
 				`refreshToken=${newRefreshToken}`,
 				'HttpOnly',
@@ -383,6 +407,14 @@ const actions = {
 			const invalids = base.checkValids(body, ['passwordOld', 'passwordNew'])
 			if (invalids) {
 				return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
+			}
+
+			if (passwordNew.length < 8) {
+				return base.respFailure({ msg: '新密码长度至少需8位' })
+			}
+
+			if (passwordOld === passwordNew) {
+				return base.respFailure({ msg: '新密码不能与原密码相同' })
 			}
 
 			let users = []
@@ -441,6 +473,14 @@ const actions = {
 			const { username, password, nickname, phone, status = 1 } = body
 			if (!username || !password) return base.respFailure({ msg: '用户名和密码不能为空' })
 
+			if (!/^(?!\d+$)[a-zA-Z0-9_]{3,20}$/.test(username)) {
+				return base.respFailure({ msg: '用户名需为3-20位字母、数字或下划线，且不能为纯数字' })
+			}
+
+			if (password.length < 8) {
+				return base.respFailure({ msg: '密码长度至少需8位' })
+			}
+
 			try {
 				// 检查重复
 				const check = await db.query('SELECT id FROM base_user WHERE username = $1', [username])
@@ -491,10 +531,16 @@ const actions = {
 				const binds = []
 
 				if (username) {
+					if (!/^(?!\d+$)[a-zA-Z0-9_]{3,20}$/.test(username)) {
+						return base.respFailure({ msg: '用户名需为3-20位字母、数字或下划线，且不能为纯数字' })
+					}
 					binds.push(username)
 					fields.push(`username = $${binds.length}`)
 				}
 				if (password) {
+					if (password.length < 8) {
+						return base.respFailure({ msg: '密码长度至少需8位' })
+					}
 					binds.push(encryptPassword(password))
 					fields.push(`password = $${binds.length}`)
 				}
@@ -549,6 +595,191 @@ const actions = {
 				return base.respFailure({ msg: `删除失败: ${err.message}` })
 			}
 		}),
+
+		/**
+		 * 发送短信验证码 (阿里云 Dypnsapi)
+		 */
+		send_sms_code: async ({ req, body }) => {
+			const { phone, altchaPayload } = body
+
+			const invalids = base.checkValids(body, ['phone'])
+			if (invalids) {
+				return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
+			}
+
+			if (!/^1[3-9]\d{9}$/.test(phone)) {
+				return base.respFailure({ msg: '请输入有效的11位手机号码' })
+			}
+
+			// 强制人机验证 (ALTCHA) 防刷
+			if (!altchaPayload) {
+				return base.respFailure({ msg: '请先完成人机验证' })
+			}
+
+			const hmacKey = process.env.CRYPTO_SECRET
+			if (!hmacKey) {
+				return base.respFailure({ msg: '服务器安全配置错误' })
+			}
+
+			try {
+				const { verifySolution } = await import('altcha-lib/v1')
+				const isValid = await verifySolution(altchaPayload, hmacKey)
+				if (!isValid) {
+					return base.respFailure({ msg: '人机验证失败，请重试' })
+				}
+			} catch (err) {
+				console.error('ALTCHA 验证异常:', err)
+				return base.respFailure({ msg: '人机验证服务异常' })
+			}
+
+			// 手机号查重：已注册号码直接拦截，避免浪费短信资费
+			try {
+				const exist = await db.query('SELECT id FROM base_user WHERE phone = $1 LIMIT 1', [phone])
+				if (exist.rowCount > 0) {
+					return base.respFailure({ msg: '该手机号码已注册，请直接登录' })
+				}
+			} catch (err) {
+				console.error('查询手机号失败:', err)
+			}
+
+			// 调用阿里云发送短信
+			const smsRes = await send_smsVerifyCode(phone)
+			if (!smsRes.success) {
+				return base.respFailure({ msg: smsRes.msg })
+			}
+
+			return base.respSuccess({
+				msg: '验证码已发送，10分钟内有效',
+				data: smsRes.data,
+			})
+		},
+
+		/**
+		 * 核验短信验证码 (阿里云 Dypnsapi)
+		 */
+		verify_sms_code: async ({ body }) => {
+			const { phone, code } = body
+
+			const invalids = base.checkValids(body, ['phone', 'code'])
+			if (invalids) {
+				return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
+			}
+
+			// 调用阿里云核验
+			const verifyRes = await check_smsVerifyCode(phone, code)
+			if (!verifyRes.success) {
+				return base.respFailure({ msg: verifyRes.msg })
+			}
+
+			// 核验成功，生成短效防篡改注册凭据 smsToken (15分钟有效)
+			const secret = process.env.JWT_SECRET
+			const smsToken = jwt.sign(
+				{ phone, type: 'sms_register', timestamp: Date.now() },
+				secret,
+				{ expiresIn: '15m' },
+			)
+
+			return base.respSuccess({
+				msg: '验证码核验成功',
+				data: { smsToken },
+			})
+		},
+
+		/**
+		 * 手机号用户注册 (需携带核验通过的 smsToken)
+		 */
+		register: async ({ req, resp, body }) => {
+			const { smsToken, username, password } = body
+
+			const invalids = base.checkValids(body, ['smsToken', 'username', 'password'])
+			if (invalids) {
+				return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
+			}
+
+			// 验证 smsToken
+			let phone = ''
+			const secret = process.env.JWT_SECRET
+			try {
+				const decoded = jwt.verify(smsToken, secret)
+				if (decoded.type !== 'sms_register' || !decoded.phone) {
+					return base.respFailure({ msg: '短信验证凭据无效，请重新验证' })
+				}
+				phone = decoded.phone
+			} catch (err) {
+				return base.respFailure({ msg: '短信验证已过期，请重新获取验证码' })
+			}
+
+			// 格式校验
+			if (!/^(?!\d+$)[a-zA-Z0-9_]{3,20}$/.test(username)) {
+				return base.respFailure({ msg: '用户名需为3-20位字母、数字或下划线，且不能为纯数字' })
+			}
+			if (password.length < 8) {
+				return base.respFailure({ msg: '密码长度至少需8位' })
+			}
+
+			try {
+				// 查重：用户名
+				const checkUser = await db.query('SELECT id FROM base_user WHERE username = $1 LIMIT 1', [username])
+				if (checkUser.rowCount > 0) {
+					return base.respFailure({ msg: '该用户名已被占用，请更换' })
+				}
+
+				// 查重：手机号
+				const checkPhone = await db.query('SELECT id FROM base_user WHERE phone = $1 LIMIT 1', [phone])
+				if (checkPhone.rowCount > 0) {
+					return base.respFailure({ msg: '该手机号已注册，请直接登录' })
+				}
+
+				const id = base.getId()
+				const createTime = base.getTime()
+				const encryptedPassword = encryptPassword(password)
+
+				// 写入用户表
+				await db.query(
+					'INSERT INTO base_user (id, username, password, nickname, phone, "status", "createTime") VALUES ($1, $2, $3, $4, $5, $6, $7)',
+					[id, username, encryptedPassword, username, phone, 1, createTime],
+				)
+
+				// 注册成功，直接颁发 Token 自动登录
+				const accessToken = generateAccessToken({ userId: id, username })
+				const refreshToken = generateRefreshToken()
+				const tokenHash = hashToken(refreshToken)
+
+				const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+				const userAgent = req.headers['user-agent'] || ''
+				const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || ''
+
+				try {
+					await db.query(
+						'INSERT INTO base_user_session (user_id, "refreshTokenHash", "expireTime", "userAgent", "ipAddress") VALUES ($1, $2, $3, $4, $5)',
+						[id, tokenHash, expiresAt.toISOString(), userAgent, ipAddress],
+					)
+				} catch (err) {
+					console.error('保存 session 失败:', err)
+				}
+
+				const isProd = process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production'
+				const cookieOptions = [
+					`refreshToken=${refreshToken}`,
+					'HttpOnly',
+					'Path=/',
+					`Max-Age=${7 * 24 * 60 * 60}`,
+					isProd ? 'SameSite=None; Secure' : 'SameSite=Lax',
+				].join('; ')
+				resp.setHeader('Set-Cookie', cookieOptions)
+
+				return base.respSuccess({
+					msg: '注册成功',
+					data: {
+						token: accessToken,
+						info: { id, username, phone, nickname: username },
+					},
+				})
+			} catch (err) {
+				console.error('注册异常:', err)
+				return base.respFailure({ msg: `注册失败: ${err.message}` })
+			}
+		},
 	},
 }
 

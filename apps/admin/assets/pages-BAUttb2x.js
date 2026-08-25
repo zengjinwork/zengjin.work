@@ -1,1 +1,0 @@
-import{Br as e,Di as t,Lr as n,f as r,h as i,ji as a,p as o,si as s}from"./index-CqG1VoBI.js";var c={class:`_panel`},l=i({__name:`index`,setup(i){let l=$config.title;return o(),r(),(r,i)=>(s(),e(`section`,c,[n(`h1`,null,a(t(l)),1)]))}},[[`__scopeId`,`data-v-ebe53909`]]);export{l as default};

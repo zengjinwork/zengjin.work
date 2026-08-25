@@ -15,6 +15,10 @@
 		"format:check": "prettier --check \"api_util/**/*.js\" \"api/**/*.js\" \"*.json\" \"*.mjs\" \"*.js\""
 	},
 	"dependencies": {
+		"@alicloud/credentials": "^2.4.7",
+		"@alicloud/dypnsapi20170525": "^2.0.0",
+		"@alicloud/openapi-client": "^0.4.15",
+		"@alicloud/tea-util": "^1.4.11",
 		"@supabase/supabase-js": "^2.93.3",
 		"@vercel/node": "^2.15.1",
 		"altcha-lib": "^2.0.3",

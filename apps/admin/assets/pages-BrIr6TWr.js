@@ -1,0 +1,1 @@
+import{Ai as e,Ei as t,Ir as n,d as r,f as i,m as a,oi as o,zr as s}from"./index-tUE5MZ71.js";var c={class:`_panel`},l=a({__name:`index`,setup(a){let l=$config.title;return i(),r(),(r,i)=>(o(),s(`section`,c,[n(`h1`,null,e(t(l)),1)]))}},[[`__scopeId`,`data-v-ebe53909`]]);export{l as default};
