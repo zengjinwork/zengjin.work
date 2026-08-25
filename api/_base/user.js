@@ -8,12 +8,29 @@ import { generateAccessToken, generateRefreshToken } from '#api_util/jwt.js'
 import { check_smsVerifyCode, send_smsVerifyCode } from '#api_util/sms_alicloud.js'
 
 /**
+ * 自动确保 base_user 表中存在 avatar 字段并纠正桶域名
+ */
+let avatarColumnChecked = false
+async function ensure_avatarColumn() {
+	if (avatarColumnChecked) return
+	try {
+		await db.query('ALTER TABLE base_user ADD COLUMN IF NOT EXISTS avatar TEXT')
+		await db.query(`UPDATE base_user SET avatar = REPLACE(avatar, 'https://drive.zengjin.work/avatar/', 'https://file.zengjin.work/avatar/') WHERE avatar LIKE 'https://drive.zengjin.work/avatar/%'`).catch(() => {})
+		avatarColumnChecked = true
+	} catch (err) {
+		console.error('[DB] 自动检查/增加 avatar 字段:', err.message)
+	}
+}
+
+/**
  * 用户及身份认证相关接口
  * GET  /api/base/user/me
  * POST /api/base/user/login
  * POST /api/base/user/logout
  * POST /api/base/user/refresh
  * POST /api/base/user/update_password
+ * POST /api/base/user/update_profile
+ * POST /api/base/user/update_phone
  * POST /api/base/user/send_sms_code
  * POST /api/base/user/verify_sms_code
  * POST /api/base/user/register
@@ -26,22 +43,37 @@ const actions = {
 		me: requireAuth(async ({ req }) => {
 			const { userId } = req.user
 
+			await ensure_avatarColumn()
+
 			let users = []
 			let error = null
 			try {
-				const result = await db.query('SELECT id, username, phone, nickname FROM base_user WHERE id = $1 LIMIT 1', [userId])
+				const result = await db.query(
+					'SELECT id, username, phone, nickname, avatar, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1',
+					[userId],
+				)
 				users = result.rows
 			} catch (err) {
-				error = err
+				console.error('[User me error]:', err)
+				// 兜底降级查询（防范某些旧库未包含 avatar）
+				try {
+					const fallbackRes = await db.query(
+						'SELECT id, username, phone, nickname, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1',
+						[userId],
+					)
+					users = fallbackRes.rows
+				} catch (fallbackErr) {
+					error = fallbackErr
+				}
 			}
 
 			if (error || !users || users.length === 0) {
-				return base.respFailure({ msg: '用户不存在或获取失败' })
+				return base.respFailure({ msg: error ? `获取失败: ${error.message}` : '用户不存在' })
 			}
 
 			return base.respSuccess({
 				msg: '获取成功',
-				data: users[0],
+				data: base.formatDbRows(users)[0],
 			})
 		}),
 
@@ -102,7 +134,7 @@ const actions = {
 			}
 
 			const whereStr = wheres.length ? `WHERE ${wheres.join(' AND ')}` : ''
-			const sql = `SELECT id, username, phone, nickname, "status", "statusTime", "createTime", "updateTime" FROM base_user ${whereStr} ORDER BY "createTime" DESC LIMIT $${binds.length + 1} OFFSET $${binds.length + 2}`
+			const sql = `SELECT id, username, phone, nickname, avatar, "status", "statusTime", "createTime", "updateTime" FROM base_user ${whereStr} ORDER BY "createTime" DESC LIMIT $${binds.length + 1} OFFSET $${binds.length + 2}`
 			const countSql = `SELECT count(*) as total FROM base_user ${whereStr}`
 
 			try {
@@ -123,7 +155,7 @@ const actions = {
 			if (!query.id) return base.respFailure({ msg: 'ID不能为空' })
 			try {
 				const res = await db.query(
-					'SELECT id, username, phone, nickname, "status", "statusTime", "createTime", "updateTime" FROM base_user WHERE id = $1',
+					'SELECT id, username, phone, nickname, avatar, "status", "statusTime", "createTime", "updateTime" FROM base_user WHERE id = $1',
 					[query.id],
 				)
 				if (res.rowCount === 0) return base.respFailure({ msg: '用户不存在' })
@@ -214,12 +246,20 @@ const actions = {
 			let queryError = null
 			try {
 				const result = await db.query(
-					'SELECT id, username, password, phone, nickname, "status" FROM base_user WHERE username = $1 OR phone = $1 LIMIT 1',
+					'SELECT id, username, password, phone, nickname, avatar, "status", "createTime" FROM base_user WHERE username = $1 OR phone = $1 LIMIT 1',
 					[username],
 				)
 				users = result.rows
 			} catch (err) {
-				queryError = err
+				try {
+					const fallbackRes = await db.query(
+						'SELECT id, username, password, phone, nickname, "status", "createTime" FROM base_user WHERE username = $1 OR phone = $1 LIMIT 1',
+						[username],
+					)
+					users = fallbackRes.rows
+				} catch (fallbackErr) {
+					queryError = fallbackErr
+				}
 			}
 
 			if (queryError || !users || users.length === 0) {
@@ -269,11 +309,20 @@ const actions = {
 			].join('; ')
 			resp.setHeader('Set-Cookie', cookieOptions)
 
+			const formattedUser = base.formatDbRows(users)[0]
 			return base.respSuccess({
 				msg: '登录成功',
 				data: {
 					token: accessToken,
-					info: { id: user.id, username: user.username, phone: user.phone, nickname: user.nickname },
+					info: {
+						id: formattedUser.id,
+						username: formattedUser.username,
+						phone: formattedUser.phone,
+						nickname: formattedUser.nickname,
+						avatar: formattedUser.avatar || '',
+						status: formattedUser.status,
+						createTime: formattedUser.createTime,
+					},
 				},
 			})
 		},
@@ -467,14 +516,113 @@ const actions = {
 		}),
 
 		/**
+		 * 更新个人资料（昵称、头像）
+		 */
+		update_profile: requireAuth(async ({ req, body }) => {
+			const { userId } = req.user
+			const { nickname, avatar } = body
+
+			const binds = []
+			const fields = []
+
+			if (nickname !== undefined) {
+				const cleanNickname = nickname.trim()
+				if (cleanNickname.length > 30) {
+					return base.respFailure({ msg: '昵称长度不能超过30个字符' })
+				}
+				binds.push(cleanNickname)
+				fields.push(`nickname = $${binds.length}`)
+			}
+
+			if (avatar !== undefined) {
+				binds.push(avatar.trim())
+				fields.push(`avatar = $${binds.length}`)
+			}
+
+			if (fields.length === 0) {
+				return base.respFailure({ msg: '未提供需要更新的资料项' })
+			}
+
+			try {
+				await ensure_avatarColumn()
+
+				binds.push(base.getTime())
+				fields.push(`"updateTime" = $${binds.length}`)
+
+				binds.push(userId)
+				const sql = `UPDATE base_user SET ${fields.join(', ')} WHERE id = $${binds.length}`
+				await db.query(sql, binds)
+
+				// 查询更新后的最新信息
+				const updated = await db.query(
+					'SELECT id, username, phone, nickname, avatar, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1',
+					[userId],
+				)
+				return base.respSuccess({
+					msg: '资料更新成功',
+					data: base.formatDbRows(updated.rows)[0],
+				})
+			} catch (err) {
+				console.error('更新个人资料失败:', err)
+				return base.respFailure({ msg: `更新失败: ${err.message}` })
+			}
+		}),
+
+		/**
+		 * 换绑手机号
+		 */
+		update_phone: requireAuth(async ({ req, body }) => {
+			const { userId } = req.user
+			const { smsToken } = body
+
+			if (!smsToken) {
+				return base.respFailure({ msg: '缺少短信核验凭据' })
+			}
+
+			let phone = ''
+			try {
+				const decoded = jwt.verify(smsToken, process.env.JWT_SECRET)
+				if (decoded.type !== 'sms_register' || !decoded.phone) {
+					return base.respFailure({ msg: '短信核验凭据无效' })
+				}
+				phone = decoded.phone
+			} catch (err) {
+				return base.respFailure({ msg: '短信核验已过期，请重新获取验证码' })
+			}
+
+			try {
+				// 查重：手机号是否已被其他账号占用
+				const check = await db.query('SELECT id FROM base_user WHERE phone = $1 AND id != $2 LIMIT 1', [phone, userId])
+				if (check.rowCount > 0) {
+					return base.respFailure({ msg: '该手机号码已被其他账号绑定，请更换其他号码' })
+				}
+
+				await db.query('UPDATE base_user SET phone = $1, "updateTime" = NOW() WHERE id = $2', [phone, userId])
+
+				await ensure_avatarColumn()
+				const updated = await db.query(
+					'SELECT id, username, phone, nickname, avatar, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1',
+					[userId],
+				)
+				return base.respSuccess({
+					msg: '手机号换绑成功',
+					data: base.formatDbRows(updated.rows)[0],
+				})
+			} catch (err) {
+				console.error('换绑手机号失败:', err)
+				return base.respFailure({ msg: `换绑失败: ${err.message}` })
+			}
+		}),
+
+		/**
 		 * 新增用户
 		 */
 		insert: requireAuth(async ({ body }) => {
 			const { username, password, nickname, phone, status = 1 } = body
 			if (!username || !password) return base.respFailure({ msg: '用户名和密码不能为空' })
 
-			if (!/^(?!\d+$)[a-zA-Z0-9_]{3,20}$/.test(username)) {
-				return base.respFailure({ msg: '用户名需为3-20位字母、数字或下划线，且不能为纯数字' })
+			if (!/^(?!\d+$)[a-zA-Z0-9_]{2,20}$/.test(username)) {
+				return base.respFailure({ msg: '用户名需为2-20位字母、数字或下划线，且不能为纯数字' })
 			}
 
 			if (password.length < 8) {
@@ -531,8 +679,8 @@ const actions = {
 				const binds = []
 
 				if (username) {
-					if (!/^(?!\d+$)[a-zA-Z0-9_]{3,20}$/.test(username)) {
-						return base.respFailure({ msg: '用户名需为3-20位字母、数字或下划线，且不能为纯数字' })
+					if (!/^(?!\d+$)[a-zA-Z0-9_]{2,20}$/.test(username)) {
+						return base.respFailure({ msg: '用户名需为2-20位字母、数字或下划线，且不能为纯数字' })
 					}
 					binds.push(username)
 					fields.push(`username = $${binds.length}`)
@@ -710,8 +858,8 @@ const actions = {
 			}
 
 			// 格式校验
-			if (!/^(?!\d+$)[a-zA-Z0-9_]{3,20}$/.test(username)) {
-				return base.respFailure({ msg: '用户名需为3-20位字母、数字或下划线，且不能为纯数字' })
+			if (!/^(?!\d+$)[a-zA-Z0-9_]{2,20}$/.test(username)) {
+				return base.respFailure({ msg: '用户名需为2-20位字母、数字或下划线，且不能为纯数字' })
 			}
 			if (password.length < 8) {
 				return base.respFailure({ msg: '密码长度至少需8位' })
@@ -734,10 +882,10 @@ const actions = {
 				const createTime = base.getTime()
 				const encryptedPassword = encryptPassword(password)
 
-				// 写入用户表
+				// 写入用户表：nickname 默认留空，由渲染层通过 nickname || username 兜底展示
 				await db.query(
 					'INSERT INTO base_user (id, username, password, nickname, phone, "status", "createTime") VALUES ($1, $2, $3, $4, $5, $6, $7)',
-					[id, username, encryptedPassword, username, phone, 1, createTime],
+					[id, username, encryptedPassword, '', phone, 1, createTime],
 				)
 
 				// 注册成功，直接颁发 Token 自动登录
@@ -772,7 +920,7 @@ const actions = {
 					msg: '注册成功',
 					data: {
 						token: accessToken,
-						info: { id, username, phone, nickname: username },
+						info: { id, username, phone, nickname: '', avatar: '', createTime },
 					},
 				})
 			} catch (err) {

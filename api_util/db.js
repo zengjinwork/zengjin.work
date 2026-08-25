@@ -28,8 +28,11 @@ function getPoolConfig(key) {
 		user: process.env[`${prefix}USER`],
 		password: process.env[`${prefix}PASSWORD`],
 		database: process.env[`${prefix}NAME`] || 'postgres',
-		max: 15,
-		idleTimeoutMillis: 30000,
+		max: 10,
+		idleTimeoutMillis: 10000, // 10秒空闲主动回收，防止复用已被云端 PgBouncer 掐断的死连接
+		connectionTimeoutMillis: 5000,
+		keepAlive: true,
+		keepAliveInitialDelayMillis: 10000,
 		ssl: {
 			require: true,
 			rejectUnauthorized: false,
@@ -52,7 +55,34 @@ export function getPool(name) {
 	if (!global.dbPools[key]) {
 		const config = getPoolConfig(key)
 		if (!config) return null
-		global.dbPools[key] = new Pool(config)
+		const pool = new Pool(config)
+
+		// 监听连接池异常（避免空闲连接被服务端断开时触发未捕获异常）
+		pool.on('error', (err) => {
+			console.warn(`[DB Pool ${key}] 空闲连接已自动回收:`, err.message)
+		})
+
+		// 增强 pool.query 自动重试 1 次机制（防止云端 Pooler 短暂切断导致偶发报错）
+		const rawQuery = pool.query.bind(pool)
+		pool.query = async function (...args) {
+			try {
+				return await rawQuery(...args)
+			} catch (err) {
+				const isConnDrop =
+					err.message &&
+					(err.message.includes('Connection terminated') ||
+						err.message.includes('connection terminated') ||
+						err.message.includes('closed') ||
+						err.message.includes('ECONNRESET'))
+				if (isConnDrop) {
+					console.warn(`[DB Pool ${key}] 底层连接被云端切断，正在自动重建并重试查询...`)
+					return await rawQuery(...args)
+				}
+				throw err
+			}
+		}
+
+		global.dbPools[key] = pool
 		console.log(`已初始化数据库连接池: [${key}]`)
 	}
 	return global.dbPools[key]

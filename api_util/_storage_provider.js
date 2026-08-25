@@ -12,6 +12,15 @@ const bucketMap = {
 	drive: 'zengjin-drive',
 }
 
+const domainMap = {
+	file: 'https://file.zengjin.work',
+	cdn: 'https://cdn.zengjin.work',
+	drive: 'https://drive.zengjin.work',
+	'zengjin-file': 'https://file.zengjin.work',
+	'zengjin-cdn': 'https://cdn.zengjin.work',
+	'zengjin-drive': 'https://drive.zengjin.work',
+}
+
 const getBucketName = key => bucketMap[key] || key
 
 const getConfig = () => {
@@ -35,6 +44,7 @@ const getUploadToken = (bucketKey, options = {}) => {
 	return {
 		token: putPolicy.uploadToken(mac),
 		bucket: bucketName,
+		domain: domainMap[bucketKey] || domainMap[bucketName] || `https://${bucketKey}.zengjin.work`,
 		expires: 3600,
 	}
 }

@@ -38,14 +38,17 @@ const base = {
 
 // 获取请求信息
 base.getReqInfo = () => {
-	let paths = new URL(`https://host${base.req.url}`).pathname.split('/').filter(Boolean)
+	const urlObj = new URL(`https://host${base.req.url}`)
+	let paths = urlObj.pathname.split('/').filter(Boolean)
+	const queryFromUrl = Object.fromEntries(urlObj.searchParams.entries())
+	const query = { ...queryFromUrl, ...(base.req.query || {}) }
 
 	return {
 		method: base.req.method.toLowerCase(),
 		action: paths.pop() || '',
 		table: paths.filter((item, i) => !(i == 0 && item == 'api')).join('_') || '',
-		query: base.req.query,
-		body: base.req.body,
+		query,
+		body: base.req.body || {},
 	}
 }
 
