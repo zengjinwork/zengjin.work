@@ -1,1 +1,0 @@
-import{Lr as e,oi as t}from"./index-tUE5MZ71.js";import n from"./demo_2-dD6wjjfh.js";var r={__name:`demo_2_import`,setup(r){return(r,i)=>(t(),e(n,{h1:`demo_2_import`}))}};export{r as default};
