@@ -1,6 +1,7 @@
 import base from '#api_util/base.js'
 
 import aiHandler from './_base/ai.js'
+import appHandler from './_base/app.js'
 import backupHandler from './_base/backup.js'
 import dictHandler from './_base/dict.js'
 import keepaliveHandler from './_base/keepalive.js'
@@ -9,10 +10,10 @@ import translateHandler from './_base/translate.js'
 import userHandler from './_base/user.js'
 import wsdemoHandler from './_base/wsdemo.js'
 import demoHandler from './_demo.js'
-import firebaseHandler from './_firebase.js'
 import docHandler from './_doc.js'
 import fcHandler from './_fc.js'
 import fileHandler from './_file.js'
+import firebaseHandler from './_firebase.js'
 import musicHandler from './_music.js'
 import noteHandler from './_note.js'
 import subHandler from './_sub.js'
@@ -62,6 +63,8 @@ export default async function masterHandler(req, res) {
 						return await wsdemoHandler(req, res)
 					} else if (subModule === 'ai') {
 						return await aiHandler(req, res)
+					} else if (subModule === 'app') {
+						return await appHandler(req, res)
 					} else if (subModule === 'backup') {
 						return await backupHandler(req, res)
 					}
