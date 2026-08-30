@@ -53,12 +53,14 @@ async function call_api(appHandler, url, method, headers = {}, body = {}, query 
 // 生成管理员访问令牌（vitest 已注入 JWT_SECRET）
 const admin_token = () => `Bearer ${generateAccessToken({ userId: 'admin001', username: 'admin' })}`
 
-// 默认 mock：ensure 阶段 4 个查询 (建表/索引/迁移列/计数)
+// 默认 mock：ensure 阶段 6 个查询 (建表/索引/image迁移/category扩容/老数据刷正/计数)
 function mock_ensure(count = '31') {
 	mockQuery
 		.mockResolvedValueOnce({ rows: [], rowCount: 0 }) // CREATE TABLE
 		.mockResolvedValueOnce({ rows: [], rowCount: 0 }) // CREATE INDEX
 		.mockResolvedValueOnce({ rows: [], rowCount: 0 }) // ALTER TABLE (image 列迁移)
+		.mockResolvedValueOnce({ rows: [], rowCount: 0 }) // ALTER TABLE (category 列扩容)
+		.mockResolvedValueOnce({ rows: [], rowCount: 0 }) // UPDATE (老分类迁移)
 		.mockResolvedValueOnce({ rows: [{ count }] }) // SELECT COUNT
 }
 
@@ -85,7 +87,7 @@ describe('app.get.home — 首页公开列表', () => {
 		expect(res.json.data).toHaveLength(2)
 
 		// 校验过滤与排序 SQL（过滤条件写死在 SQL 层，不拼接用户输入）
-		const homeSql = mockQuery.mock.calls[4][0]
+		const homeSql = mockQuery.mock.calls[6][0]
 		expect(homeSql).toContain('WHERE show = true AND status = 1')
 		expect(homeSql).toContain('ORDER BY featured DESC, sort ASC, createtime ASC')
 		// 封面图字段必须随列表返回（大卡封面 / 图标降级共用）
@@ -100,8 +102,8 @@ describe('app.get.home — 首页公开列表', () => {
 
 		await call_api(appHandler, '/api/base/app/home', 'GET')
 
-		// 4 次 ensure 查询 (建表/索引/迁移/计数) 之后的所有调用都是 INSERT
-		const insertCalls = mockQuery.mock.calls.slice(4)
+		// 6 次 ensure 查询 (建表/索引/image迁移/category扩容/老分类迁移/计数) 之后的所有调用都是 INSERT
+		const insertCalls = mockQuery.mock.calls.slice(6)
 		expect(insertCalls.length).toBeGreaterThanOrEqual(31)
 		const insertSql = insertCalls[0][0]
 		expect(insertSql).toContain('INSERT INTO base_app')

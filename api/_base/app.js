@@ -30,7 +30,7 @@ const presets = [
 		'多模型 AI 对话，支持联网搜索与深度推理',
 		'fa-regular fa-comment-dots',
 		'#4f6bff',
-		'ai',
+		'daily,dev',
 		'',
 		1,
 		'NEW',
@@ -53,15 +53,15 @@ const presets = [
 		true,
 		20,
 	],
-	['music', '增进工坊·音乐盒', '音乐盒, 播放器, 歌词, LRC', '音乐播放器，支持 LRC 歌词', 'fa-regular fa-music', '#ab47bc', 'media', '', 1, '', 1, true, 30],
-	['time', '计时器 / 秒表', '秒表, 计时, 番茄钟, 倒计时', '计时器 / 秒表 / 倒计时', 'fa-regular fa-stopwatch', '#26a69a', 'tool', '', 1, '', 1, true, 40],
-	['note', '云端笔记', '笔记, 备忘录, 便签', '轻量云端笔记', 'fa-regular fa-note-sticky', '#ffb300', 'office', '', 1, '', 1, true, 50],
+	['music', '增进工坊·音乐盒', '音乐盒, 播放器, 歌词, LRC', '音乐播放器，支持 LRC 歌词', 'fa-regular fa-music', '#ab47bc', 'daily,media', '', 1, '', 1, true, 30],
+	['time', '计时器 / 秒表', '秒表, 计时, 番茄钟, 倒计时', '计时器 / 秒表 / 倒计时', 'fa-regular fa-stopwatch', '#26a69a', 'daily', '', 1, '', 1, true, 40],
+	['note', '云端笔记', '笔记, 备忘录, 便签', '轻量云端笔记', 'fa-regular fa-note-sticky', '#ffb300', 'daily,dev', '', 1, '', 1, true, 50],
 
 	// ---- 常规应用 (featured=0) ----
 	['jq', '军旗卡牌', '军棋, 卡牌, 对弈', '军旗卡牌小游戏', 'fa-regular fa-chess-pawn', '#66bb6a', 'game', '', 0, '', 1, true, 100],
-	['lucky', '幸运抽奖', '抽奖, 转盘, 随机', '幸运大转盘抽奖', 'fa-regular fa-gift', '#ff7043', 'game', '', 0, '', 1, true, 110],
-	['qjt', '全景图工具', '全景, 360, 全景图', '全景图片查看与生成', 'fa-regular fa-panorama', '#5c6bc0', 'media', '', 0, '', 1, true, 120],
-	['todo', 'TODO 待办', '待办, 清单, 任务', 'TODO 待办清单', 'fa-regular fa-square-check', '#9ccc65', 'office', '', 0, '', 1, true, 130],
+	['lucky', '幸运抽奖', '抽奖, 转盘, 随机', '幸运大转盘抽奖', 'fa-regular fa-gift', '#ff7043', 'game,daily', '', 0, '', 1, true, 110],
+	['qjt', '全景图工具', '全景, 360, 全景图', '全景图片查看与生成', 'fa-regular fa-panorama', '#5c6bc0', 'media,gis', '', 0, '', 1, true, 120],
+	['todo', 'TODO 待办', '待办, 清单, 任务', 'TODO 待办清单', 'fa-regular fa-square-check', '#9ccc65', 'daily', '', 0, '', 1, true, 130],
 	[
 		'base64_qoder',
 		'Base64 图片工具',
@@ -69,7 +69,7 @@ const presets = [
 		'Base64 图片编码预览工具',
 		'fa-regular fa-image',
 		'#4dd0e1',
-		'tool',
+		'media,dev',
 		'',
 		0,
 		'',
@@ -84,7 +84,7 @@ const presets = [
 		'Base64 与文本互转',
 		'fa-regular fa-arrow-right-arrow-left',
 		'#26c6da',
-		'tool',
+		'dev,daily',
 		'',
 		0,
 		'',
@@ -92,28 +92,28 @@ const presets = [
 		true,
 		150,
 	],
-	['char', '字符大全', '字符, 转义, Unicode', '字符编码大全', 'fa-regular fa-keyboard', '#78909c', 'tool', '', 0, '', 1, true, 160],
-	['color', '取色器', '取色, 调色板, 色值', '网页取色器', 'fa-regular fa-droplet', '#ec407a', 'tool', '', 0, '', 1, true, 170],
-	['cursor', '光标预览', '光标, 鼠标, 样式', 'CSS 光标样式预览', 'fa-regular fa-arrow-pointer', '#8d6e63', 'tool', '', 0, '', 1, true, 180],
-	['fa', 'Font Awesome 图标', 'font awesome, 图标库, 图标', 'Font Awesome 图标速查', 'fa-solid fa-icons', '#3f51b5', 'tool', '', 0, '', 1, true, 190],
-	['fa5', 'FA5 图标库', 'fa5, 图标库, 图标', 'FA5 图标库检索', 'fa-regular fa-shapes', '#3949ab', 'tool', '', 0, '', 1, true, 200],
-	['ti', 'Tabler 图标', 'tabler, 图标库, 图标', 'Tabler 图标速查', 'fa-regular fa-table-cells', '#1e88e5', 'tool', '', 0, '', 1, true, 210],
-	['flex', 'Flex 布局演示', 'flex, css, 弹性盒', 'Flex 布局可视化演示', 'fa-regular fa-layer-group', '#00897b', 'tool', '', 0, '', 1, true, 220],
-	['key2', '按键检测', '按键, 键盘, keydown', '按键码实时检测', 'fa-regular fa-keyboard', '#7e57c2', 'tool', '', 0, '', 1, true, 230],
-	['llq', '设备信息', '设备, 硬件, navigator', '设备与浏览器信息', 'fa-regular fa-laptop', '#00acc1', 'tool', '', 0, '', 1, true, 240],
-	['camera', '摄像头采集', '摄像头, 相机, 采集, 人脸', '摄像头采集与截图', 'fa-regular fa-camera', '#fb8c00', 'tool', '', 0, '', 1, true, 250],
-	['gis', 'GIS 综合应用', 'gis, 地图, 地理', 'GIS 综合应用集', 'fa-regular fa-earth-asia', '#43a047', 'map', '', 0, '', 1, true, 260],
-	['mars3d', 'Mars3D 实例', '三维, 3d, 地球, cesium', 'Mars3D 三维地球实例', 'fa-regular fa-globe', '#f4511e', 'map', '', 0, '', 1, true, 270],
-	['threed', '3D 模型', '3d模型, three, 三维', '3D 模型在线预览', 'fa-regular fa-cube', '#5e35b1', 'map', '', 0, '', 1, true, 280],
-	['tile2d', '正射瓦片', '瓦片, 正射, 影像', '正射影像瓦片工具', 'fa-regular fa-border-all', '#039be5', 'map', '', 0, '', 1, true, 290],
-	['tileset', '3D Tiles', '3dtiles, 倾斜摄影, 三维瓦片', '3D Tiles 倾斜摄影加载', 'fa-regular fa-cubes', '#c0ca33', 'map', '', 0, '', 1, true, 300],
-	['case', '案例集', '案例, 示例, 合集', '各类技术案例合集', 'fa-regular fa-flask', '#90a4ae', 'demo', '', 0, '', 1, true, 310],
-	['admin', '管理后台', '管理后台, 系统, 控制台', '平台管理后台', 'fa-regular fa-screwdriver-wrench', '#607d8b', 'frame', '', 0, '', 1, true, 320],
+	['char', '字符大全', '字符, 转义, Unicode', '字符编码大全', 'fa-regular fa-keyboard', '#78909c', 'dev,daily', '', 0, '', 1, true, 160],
+	['color', '取色器', '取色, 调色板, 色值', '网页取色器', 'fa-regular fa-droplet', '#ec407a', 'dev,media', '', 0, '', 1, true, 170],
+	['cursor', '光标预览', '光标, 鼠标, 样式', 'CSS 光标样式预览', 'fa-regular fa-arrow-pointer', '#8d6e63', 'dev', '', 0, '', 1, true, 180],
+	['fa', 'Font Awesome 图标', 'font awesome, 图标库, 图标', 'Font Awesome 图标速查', 'fa-solid fa-icons', '#3f51b5', 'dev,media', '', 0, '', 1, true, 190],
+	['fa5', 'FA5 图标库', 'fa5, 图标库, 图标', 'FA5 图标库检索', 'fa-regular fa-shapes', '#3949ab', 'dev,media', '', 0, '', 1, true, 200],
+	['ti', 'Tabler 图标', 'tabler, 图标库, 图标', 'Tabler 图标速查', 'fa-regular fa-table-cells', '#1e88e5', 'dev,media', '', 0, '', 1, true, 210],
+	['flex', 'Flex 布局演示', 'flex, css, 弹性盒', 'Flex 布局可视化演示', 'fa-regular fa-layer-group', '#00897b', 'dev', '', 0, '', 1, true, 220],
+	['key2', '按键检测', '按键, 键盘, keydown', '按键码实时检测', 'fa-regular fa-keyboard', '#7e57c2', 'dev,daily', '', 0, '', 1, true, 230],
+	['llq', '设备信息', '设备, 硬件, navigator', '设备与浏览器信息', 'fa-regular fa-laptop', '#00acc1', 'dev,daily', '', 0, '', 1, true, 240],
+	['camera', '摄像头采集', '摄像头, 相机, 采集, 人脸', '摄像头采集与截图', 'fa-regular fa-camera', '#fb8c00', 'media,daily', '', 0, '', 1, true, 250],
+	['gis', 'GIS 综合应用', 'gis, 地图, 地理', 'GIS 综合应用集', 'fa-regular fa-earth-asia', '#43a047', 'gis,dev', '', 0, '', 1, true, 260],
+	['mars3d', 'Mars3D 实例', '三维, 3d, 地球, cesium', 'Mars3D 三维地球实例', 'fa-regular fa-globe', '#f4511e', 'gis,dev', '', 0, '', 1, true, 270],
+	['threed', '3D 模型', '3d模型, three, 三维', '3D 模型在线预览', 'fa-regular fa-cube', '#5e35b1', 'gis,media', '', 0, '', 1, true, 280],
+	['tile2d', '正射瓦片', '瓦片, 正射, 影像', '正射影像瓦片工具', 'fa-regular fa-border-all', '#039be5', 'gis', '', 0, '', 1, true, 290],
+	['tileset', '3D Tiles', '3dtiles, 倾斜摄影, 三维瓦片', '3D Tiles 倾斜摄影加载', 'fa-regular fa-cubes', '#c0ca33', 'gis', '', 0, '', 1, true, 300],
+	['case', '案例集', '案例, 示例, 合集', '各类技术案例合集', 'fa-regular fa-flask', '#90a4ae', 'dev', '', 0, '', 1, true, 310],
+	['admin', '管理后台', '管理后台, 系统, 控制台', '平台管理后台', 'fa-regular fa-screwdriver-wrench', '#607d8b', 'dev,daily', '', 0, '', 1, true, 320],
 
 	// ---- 框架模板 (status=1 正式但默认下架, 仅 admin 可上架) ----
-	['prime', 'Prime 框架模板', 'prime, 框架, 模板', 'Prime 框架模板', 'fa-regular fa-diagram-project', '#607d8b', 'frame', '', 0, '', 1, false, 330],
-	['wired', 'Wired 手绘风', 'wired, 手绘, 组件', 'Wired 手绘风组件库', 'fa-regular fa-diagram-project', '#607d8b', 'frame', '', 0, '', 1, false, 340],
-	['control', '控件库模板', 'control, 控件, 模板', '控件库模板', 'fa-regular fa-diagram-project', '#607d8b', 'frame', '', 0, '', 1, false, 350],
+	['prime', 'Prime 框架模板', 'prime, 框架, 模板', 'Prime 框架模板', 'fa-regular fa-diagram-project', '#607d8b', 'dev', '', 0, '', 1, false, 330],
+	['wired', 'Wired 手绘风', 'wired, 手绘, 组件', 'Wired 手绘风组件库', 'fa-regular fa-diagram-project', '#607d8b', 'dev', '', 0, '', 1, false, 340],
+	['control', '控件库模板', 'control, 控件, 模板', '控件库模板', 'fa-regular fa-diagram-project', '#607d8b', 'dev', '', 0, '', 1, false, 350],
 ]
 
 // 核心初始化状态（ed 后缀命名）
@@ -137,7 +137,7 @@ async function ensure_dbInitialized_async() {
 			"desc"     VARCHAR(255) DEFAULT '',
 			icon       VARCHAR(100) DEFAULT '',
 			icon_color VARCHAR(20)  DEFAULT '',
-			category   VARCHAR(20)  DEFAULT 'tool',
+			category   VARCHAR(100) DEFAULT 'daily',
 			url        VARCHAR(150) DEFAULT '',
 			image      VARCHAR(500) DEFAULT '',
 			featured   SMALLINT     DEFAULT 0,
@@ -153,6 +153,22 @@ async function ensure_dbInitialized_async() {
 	await db.query('CREATE INDEX IF NOT EXISTS idx_base_app_show_status_sort ON base_app (show, status, sort)')
 	// 幂等迁移：为存量表补齐 image 封面列（新表已在 CREATE TABLE 内置）
 	await db.query(`ALTER TABLE base_app ADD COLUMN IF NOT EXISTS image VARCHAR(500) DEFAULT ''`)
+	// 幂等迁移：扩大 category 字段长度以支持多分类存储
+	await db.query(`ALTER TABLE base_app ALTER COLUMN category TYPE VARCHAR(100)`)
+
+	// 幂等迁移：将旧分类平滑过渡到新分类规范
+	await db.query(`
+		UPDATE base_app SET category = CASE
+			WHEN category = 'ai' THEN 'daily,dev'
+			WHEN category = 'tool' THEN 'daily,dev'
+			WHEN category = 'office' THEN 'daily'
+			WHEN category = 'map' THEN 'gis'
+			WHEN category = 'frame' THEN 'dev'
+			WHEN category = 'demo' THEN 'dev'
+			ELSE category
+		END
+		WHERE category IN ('ai', 'tool', 'office', 'map', 'frame', 'demo')
+	`)
 
 	// 幂等补齐种子：仅当行数不足时补插缺失 name（不覆盖已存在行，不干扰 admin 上/下架调整）
 	const countRes = await db.query('SELECT COUNT(*) FROM base_app')
