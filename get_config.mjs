@@ -17,9 +17,8 @@ const cert = admin.credential.cert({
 })
 const { access_token } = await cert.getAccessToken()
 
-const resp = await fetch(
-	`https://identitytoolkit.googleapis.com/admin/v2/projects/${projectId}/config`,
-	{ headers: { Authorization: `Bearer ${access_token}` } }
-)
+const resp = await fetch(`https://identitytoolkit.googleapis.com/admin/v2/projects/${projectId}/config`, {
+	headers: { Authorization: `Bearer ${access_token}` },
+})
 console.log('HTTP', resp.status)
 console.log(await resp.text())

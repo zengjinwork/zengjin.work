@@ -1,3 +1,4 @@
+import { build_providerGroups, derive_domainFromUrl } from '#api_util/ai_provider.js'
 import { decide_searchByRule } from '#api_util/ai_search.js'
 import { build_titleMessages, clean_localTitle, clean_titleText } from '#api_util/ai_title.js'
 import { requireAuth } from '#api_util/auth_middleware.js'
@@ -14,34 +15,87 @@ let dbInitialized = false
 async function ensure_dbInitialized_async() {
 	if (dbInitialized) return
 
-	// 创建模型配置表
+	// 创建模型配置表 (url/key/domain/provider 已抽离至 base_ai_provider 服务商表, 模型仅挂 providerId 外键)
 	await db.query(`
 		CREATE TABLE IF NOT EXISTS base_ai (
 			id VARCHAR(255) PRIMARY KEY,
 			name VARCHAR(255) NOT NULL,
-			domain VARCHAR(255),
-			provider VARCHAR(50) NOT NULL DEFAULT 'openai',
-			url VARCHAR(500) NOT NULL,
-			key VARCHAR(500) NOT NULL,
+			"providerId" VARCHAR(255) NOT NULL,
 			model VARCHAR(255) NOT NULL,
 			"desc" TEXT,
 			status INT NOT NULL DEFAULT 1,
 			"isReasoning" INT NOT NULL DEFAULT 0,
 			sort INT NOT NULL DEFAULT 0,
 			speed INT NOT NULL DEFAULT 2,
+			search INT NOT NULL DEFAULT 1,
 			"createTime" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			"updateTime" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
 
-	// 自动补齐 domain 字段
-	await db.query('ALTER TABLE base_ai ADD COLUMN IF NOT EXISTS domain VARCHAR(255)')
+	// 创建服务商配置表 (一套「显示名 + 域名 + 协议 + Base URL + API Key」可被多个模型复用)
+	await db.query(`
+		CREATE TABLE IF NOT EXISTS base_ai_provider (
+			id VARCHAR(255) PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			domain VARCHAR(255),
+			provider VARCHAR(50) NOT NULL DEFAULT 'openai',
+			url VARCHAR(500) NOT NULL,
+			key VARCHAR(500) NOT NULL,
+			"desc" TEXT,
+			status INT NOT NULL DEFAULT 1,
+			sort INT NOT NULL DEFAULT 0,
+			"createTime" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			"updateTime" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+
+	// 旧库补齐 providerId 外键列 (新库 no-op; 此处不加 NOT NULL, 回填后由下方守卫统一收紧)
+	await db.query('ALTER TABLE base_ai ADD COLUMN IF NOT EXISTS "providerId" VARCHAR(255)')
+
+	// 服务商外键查询索引
+	await db.query('CREATE INDEX IF NOT EXISTS idx_base_ai_provider ON base_ai ("providerId")')
 
 	// 自动补齐联网搜索能力字段 (1=支持/允许联网搜索, 0=关闭)
 	await db.query('ALTER TABLE base_ai ADD COLUMN IF NOT EXISTS "search" INT NOT NULL DEFAULT 1')
 
 	// 自动补齐响应速度字段 (1=快 2=中 3=慢, 前台下拉展示对应标签)
 	await db.query('ALTER TABLE base_ai ADD COLUMN IF NOT EXISTS "speed" INT NOT NULL DEFAULT 2')
+
+	// ---- 存量规范化迁移: 把模型行内联的 url/key/domain/provider 抽离进服务商表并回链 providerId (幂等可重放) ----
+	// 仅处理尚未回链的模型行; 旧 url/key 列 NOT NULL, 每行必有值, 按 (url,key) 分组必然覆盖全部存量行
+	const staleRes = await db.query('SELECT id, domain, provider, url, key FROM base_ai WHERE "providerId" IS NULL')
+	if (staleRes.rows.length > 0) {
+		const providerGroups = build_providerGroups(staleRes.rows)
+		const nowTime = base.getTime()
+		for (const g of providerGroups) {
+			const exist = await db.query('SELECT id FROM base_ai_provider WHERE url = $1 AND key = $2 LIMIT 1', [g.url, g.key])
+			let providerId
+			if (exist.rowCount > 0) {
+				providerId = exist.rows[0].id // 部分失败重跑时复用已建服务商
+			} else {
+				providerId = base.getId()
+				await db.query(
+					`
+					INSERT INTO base_ai_provider (id, name, domain, provider, url, key, "desc", status, sort, "createTime", "updateTime")
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+				`,
+					[providerId, g.name, g.domain, g.provider, g.url, g.key, '', 1, 0, nowTime],
+				)
+			}
+			await db.query('UPDATE base_ai SET "providerId" = $2, "updateTime" = $3 WHERE id = ANY($1::varchar[])', [g.ids, providerId, nowTime])
+		}
+	}
+
+	// 守卫清理: 仅当全部模型行均已回链才收紧 NOT NULL 并删除旧列, 否则跳过等下轮冷启动幂等自愈 (绝不静默破坏数据)
+	const orphanRes = await db.query('SELECT COUNT(*) FROM base_ai WHERE "providerId" IS NULL')
+	if (parseInt(orphanRes.rows[0].count) === 0) {
+		await db.query('ALTER TABLE base_ai ALTER COLUMN "providerId" SET NOT NULL')
+		await db.query('ALTER TABLE base_ai DROP COLUMN IF EXISTS domain')
+		await db.query('ALTER TABLE base_ai DROP COLUMN IF EXISTS provider')
+		await db.query('ALTER TABLE base_ai DROP COLUMN IF EXISTS url')
+		await db.query('ALTER TABLE base_ai DROP COLUMN IF EXISTS "key"')
+	}
 
 	// 创建会话表 (user_id 关联 base_user)
 	await db.query(`
@@ -181,13 +235,36 @@ async function ensure_dbInitialized_async() {
 				2,
 			],
 		]
+		// 先按 (url, key) 去重注入服务商 (复用已存在接入), 再注入带 providerId 的模型行
+		const nowTime = base.getTime()
+		const providerByKey = new Map() // `${url}\x00${key}` -> providerId
 		for (const p of presets) {
+			const [id, name, provider, url, key, model, desc, status, isReasoning, sort, speed] = p
+			const gkey = `${url}\x00${key}`
+			if (!providerByKey.has(gkey)) {
+				const exist = await db.query('SELECT id FROM base_ai_provider WHERE url = $1 AND key = $2 LIMIT 1', [url, key])
+				let providerId
+				if (exist.rowCount > 0) {
+					providerId = exist.rows[0].id // 兼容"服务商已建、模型未建"的部分初始化态
+				} else {
+					providerId = base.getId()
+					const providerName = derive_domainFromUrl(url) || '未命名服务商'
+					await db.query(
+						`
+						INSERT INTO base_ai_provider (id, name, domain, provider, url, key, "desc", status, sort, "createTime", "updateTime")
+						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+					`,
+						[providerId, providerName, providerName.toLowerCase(), provider, url, key, '', 1, 0, nowTime],
+					)
+				}
+				providerByKey.set(gkey, providerId)
+			}
 			await db.query(
 				`
-				INSERT INTO base_ai (id, name, provider, url, key, model, "desc", status, "isReasoning", sort, speed)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+				INSERT INTO base_ai (id, name, "providerId", model, "desc", status, "isReasoning", sort, speed)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			`,
-				p,
+				[id, name, providerByKey.get(gkey), model, desc, status, isReasoning, sort, speed],
 			)
 		}
 	}
@@ -370,13 +447,17 @@ const actions = {
 
 /**
  * [游客/普通用户] 获取安全的可用模型列表 (隐藏 url 和 key)
+ * 服务商显示名/协议经 JOIN base_ai_provider 取出, 别名 domain/provider 保持返回结构不变 (前台零改动)
  */
 actions.get.models = async () => {
 	await ensure_dbInitialized_async()
 	try {
 		// 排序与后台列表一致 (sort ASC, createTime DESC 次级), 保证前台下拉顺序严格跟随后台配置
 		const result = await db.query(
-			'SELECT id, name, domain, provider, model, "desc", "isReasoning", search, status, speed FROM base_ai WHERE status = 1 ORDER BY sort ASC, "createTime" DESC',
+			`SELECT m.id, m.name, m."providerId", m.model, m."desc", m."isReasoning", m.search, m.status, m.speed, p.name AS domain, p.provider AS provider
+			 FROM base_ai m JOIN base_ai_provider p ON p.id = m."providerId"
+			 WHERE m.status = 1 AND p.status = 1
+			 ORDER BY m.sort ASC, m."createTime" DESC`,
 		)
 		return base.respSuccess({
 			data: base.formatDbRows(result.rows),
@@ -387,7 +468,7 @@ actions.get.models = async () => {
 }
 
 /**
- * [管理端] 获取完整模型配置列表 (含 url 和 key)
+ * [管理端] 获取模型配置列表 (服务商显示名/协议经 JOIN 取出, 不返回服务商密钥)
  */
 actions.get.admin_models = requireAuth(async ({ query }) => {
 	await ensure_dbInitialized_async()
@@ -401,33 +482,40 @@ actions.get.admin_models = requireAuth(async ({ query }) => {
 		let idx = 1
 
 		if (query?.name) {
-			wheres.push(`(name ILIKE $${idx} OR model ILIKE $${idx})`)
+			wheres.push(`(m.name ILIKE $${idx} OR m.model ILIKE $${idx})`)
 			binds.push(`%${query.name}%`)
 			idx++
 		}
 
+		if (query?.providerId) {
+			wheres.push(`m."providerId" = $${idx}`)
+			binds.push(query.providerId)
+			idx++
+		}
+
 		if (query?.provider) {
-			wheres.push(`provider = $${idx}`)
+			wheres.push(`p.provider = $${idx}`)
 			binds.push(query.provider)
 			idx++
 		}
 
 		if (query?.status !== undefined && query?.status !== '') {
-			wheres.push(`status = $${idx}`)
+			wheres.push(`m.status = $${idx}`)
 			binds.push(parseInt(query.status))
 			idx++
 		}
 
 		const whereStr = wheres.length ? `WHERE ${wheres.join(' AND ')}` : ''
+		const joinStr = 'FROM base_ai m JOIN base_ai_provider p ON p.id = m."providerId"'
 
-		const countRes = await db.query(`SELECT COUNT(*) FROM base_ai ${whereStr}`, binds)
+		const countRes = await db.query(`SELECT COUNT(*) ${joinStr} ${whereStr}`, binds)
 		const total = parseInt(countRes.rows[0]?.count) || 0
 
-		const listRes = await db.query(`SELECT * FROM base_ai ${whereStr} ORDER BY sort ASC, "createTime" DESC LIMIT $${idx} OFFSET $${idx + 1}`, [
-			...binds,
-			pageSize,
-			offset,
-		])
+		const listRes = await db.query(
+			`SELECT m.id, m.name, m."providerId", m.model, m."desc", m.status, m."isReasoning", m.search, m.sort, m.speed, p.name AS domain, p.provider AS provider
+			 ${joinStr} ${whereStr} ORDER BY m.sort ASC, m."createTime" DESC LIMIT $${idx} OFFSET $${idx + 1}`,
+			[...binds, pageSize, offset],
+		)
 
 		return base.respSuccess({
 			data: base.formatDbRows(listRes.rows),
@@ -439,14 +527,14 @@ actions.get.admin_models = requireAuth(async ({ query }) => {
 })
 
 /**
- * [管理端] 新增或修改模型
+ * [管理端] 新增或修改模型 (url/key/domain/provider 归属服务商, 模型仅携带 providerId 外键)
  */
 actions.post.admin_models_save = requireAuth(async ({ body }) => {
 	await ensure_dbInitialized_async()
-	const { id, name, domain, provider, url, key, model, desc, status = 1, isReasoning = 0, search = 1, sort = 0 } = body
+	const { id, name, providerId, model, desc, status = 1, isReasoning = 0, search = 1, sort = 0 } = body
 	// 响应速度: 1=快 2=中 3=慢, 非法值归一为默认"中"
 	const speed = [1, 2, 3].includes(parseInt(body.speed)) ? parseInt(body.speed) : 2
-	const invalids = base.checkValids(body, ['name', 'provider', 'url', 'key', 'model'])
+	const invalids = base.checkValids(body, ['name', 'providerId', 'model'])
 	if (invalids) {
 		return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
 	}
@@ -461,20 +549,20 @@ actions.post.admin_models_save = requireAuth(async ({ body }) => {
 			await db.query(
 				`
 				UPDATE base_ai
-				SET name = $2, domain = $3, provider = $4, url = $5, key = $6, model = $7, "desc" = $8, status = $9, "isReasoning" = $10, search = $11, sort = $12, speed = $13, "updateTime" = $14
+				SET name = $2, "providerId" = $3, model = $4, "desc" = $5, status = $6, "isReasoning" = $7, search = $8, sort = $9, speed = $10, "updateTime" = $11
 				WHERE id = $1
 			`,
-				[finalId, name, domain || '', provider, url, key, model, desc || '', status, isReasoning, search, sort, speed, nowTime],
+				[finalId, name, providerId, model, desc || '', status, isReasoning, search, sort, speed, nowTime],
 			)
 			return base.respSuccess({ msg: '更新模型成功', data: finalId })
 		} else {
 			// 新增
 			await db.query(
 				`
-				INSERT INTO base_ai (id, name, domain, provider, url, key, model, "desc", status, "isReasoning", search, sort, speed, "createTime", "updateTime")
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14)
+				INSERT INTO base_ai (id, name, "providerId", model, "desc", status, "isReasoning", search, sort, speed, "createTime", "updateTime")
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
 			`,
-				[finalId, name, domain || '', provider, url, key, model, desc || '', status, isReasoning, search, sort, speed, nowTime],
+				[finalId, name, providerId, model, desc || '', status, isReasoning, search, sort, speed, nowTime],
 			)
 			return base.respSuccess({ msg: '创建模型成功', data: finalId })
 		}
@@ -492,6 +580,143 @@ actions.post.admin_models_delete = requireAuth(async ({ body }) => {
 	if (!id) return base.respFailure({ msg: 'ID不能为空' })
 	try {
 		await db.query('DELETE FROM base_ai WHERE id = $1', [id])
+		return base.respSuccess({ msg: '删除成功' })
+	} catch (error) {
+		return base.respFailure({ msg: `删除失败: ${error.message}` })
+	}
+})
+
+/**
+ * [管理端] 获取服务商接入配置列表 (分页, 含关联模型数, 密钥仅返回掩码)
+ */
+actions.get.admin_providers = requireAuth(async ({ query }) => {
+	await ensure_dbInitialized_async()
+	try {
+		const current = parseInt(query?.current || query?.pageNum || query?.page) || 1
+		const pageSize = parseInt(query?.pageSize) || 20
+		const offset = (current - 1) * pageSize
+
+		const wheres = []
+		const binds = []
+		let idx = 1
+
+		if (query?.name) {
+			wheres.push(`(p.name ILIKE $${idx} OR p.domain ILIKE $${idx})`)
+			binds.push(`%${query.name}%`)
+			idx++
+		}
+
+		if (query?.provider) {
+			wheres.push(`p.provider = $${idx}`)
+			binds.push(query.provider)
+			idx++
+		}
+
+		if (query?.status !== undefined && query?.status !== '') {
+			wheres.push(`p.status = $${idx}`)
+			binds.push(parseInt(query.status))
+			idx++
+		}
+
+		const whereStr = wheres.length ? `WHERE ${wheres.join(' AND ')}` : ''
+		const countRes = await db.query(`SELECT COUNT(*) FROM base_ai_provider p ${whereStr}`, binds)
+		const total = parseInt(countRes.rows[0]?.count) || 0
+
+		const listRes = await db.query(
+			`SELECT p.id, p.name, p.domain, p.provider, p.url, p."desc", p.status, p.sort, p."createTime", p."updateTime",
+				(SELECT COUNT(*) FROM base_ai m WHERE m."providerId" = p.id) AS "modelCount",
+				CASE WHEN p.key IS NULL OR p.key = '' THEN '' ELSE '****' || RIGHT(p.key, 4) END AS "keyMasked"
+			 FROM base_ai_provider p ${whereStr}
+			 ORDER BY p.sort ASC, p."createTime" DESC LIMIT $${idx} OFFSET $${idx + 1}`,
+			[...binds, pageSize, offset],
+		)
+
+		return base.respSuccess({
+			data: base.formatDbRows(listRes.rows),
+			total,
+		})
+	} catch (error) {
+		return base.respFailure({ msg: `获取服务商失败: ${error.message}` })
+	}
+})
+
+/**
+ * [管理端] 获取启用中的服务商 (下拉全量, 不返回密钥)
+ */
+actions.get.admin_providers_select = requireAuth(async () => {
+	await ensure_dbInitialized_async()
+	try {
+		const result = await db.query('SELECT id, name, domain, provider FROM base_ai_provider WHERE status = 1 ORDER BY sort ASC, "createTime" DESC')
+		return base.respSuccess({
+			data: base.formatDbRows(result.rows),
+		})
+	} catch (error) {
+		return base.respFailure({ msg: `获取服务商失败: ${error.message}` })
+	}
+})
+
+/**
+ * [管理端] 新增或修改服务商 (key 支持留空保留原值; 允许同 url+key 重复建多条以支持多套接入)
+ */
+actions.post.admin_providers_save = requireAuth(async ({ body }) => {
+	await ensure_dbInitialized_async()
+	const { id, name, domain, provider, url, key, desc, status = 1, sort = 0 } = body
+	const isUpdate = !!id
+	// 新增时 key 必填; 更新时 key 可留空, 为空则保留旧密钥
+	const invalids = base.checkValids(body, isUpdate ? ['name', 'url'] : ['name', 'url', 'key'])
+	if (invalids) {
+		return base.respFailure({ msg: `缺少必填参数: ${invalids}` })
+	}
+
+	try {
+		const finalId = id || base.getId()
+		const nowTime = base.getTime()
+		// domain 兜底: 未填时从 URL 派生
+		const finalDomain = domain || derive_domainFromUrl(url)
+		let finalKey = key
+
+		if (isUpdate) {
+			const check = await db.query('SELECT key FROM base_ai_provider WHERE id = $1', [finalId])
+			if (check.rowCount === 0) return base.respFailure({ msg: '服务商不存在' })
+			if (!finalKey) finalKey = check.rows[0].key // 留空保持原密钥
+			await db.query(
+				`
+				UPDATE base_ai_provider
+				SET name = $2, domain = $3, provider = $4, url = $5, key = $6, "desc" = $7, status = $8, sort = $9, "updateTime" = $10
+				WHERE id = $1
+			`,
+				[finalId, name, finalDomain, provider || 'openai', url, finalKey, desc || '', status, sort, nowTime],
+			)
+			return base.respSuccess({ msg: '更新服务商成功', data: finalId })
+		}
+
+		await db.query(
+			`
+			INSERT INTO base_ai_provider (id, name, domain, provider, url, key, "desc", status, sort, "createTime", "updateTime")
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+		`,
+			[finalId, name, finalDomain, provider || 'openai', url, finalKey, desc || '', status, sort, nowTime],
+		)
+		return base.respSuccess({ msg: '创建服务商成功', data: finalId })
+	} catch (error) {
+		return base.respFailure({ msg: `保存失败: ${error.message}` })
+	}
+})
+
+/**
+ * [管理端] 删除服务商 (仍被模型引用时拒绝, 保护模型数据不悬空)
+ */
+actions.post.admin_providers_delete = requireAuth(async ({ body }) => {
+	await ensure_dbInitialized_async()
+	const { id } = body
+	if (!id) return base.respFailure({ msg: 'ID不能为空' })
+	try {
+		const ref = await db.query('SELECT COUNT(*) AS c FROM base_ai WHERE "providerId" = $1', [id])
+		const cnt = parseInt(ref.rows[0]?.c) || 0
+		if (cnt > 0) {
+			return base.respFailure({ msg: `该服务商仍被 ${cnt} 个模型引用，请先删除或迁移这些模型后再删除` })
+		}
+		await db.query('DELETE FROM base_ai_provider WHERE id = $1', [id])
 		return base.respSuccess({ msg: '删除成功' })
 	} catch (error) {
 		return base.respFailure({ msg: `删除失败: ${error.message}` })
@@ -677,7 +902,14 @@ actions.post.chat = async ({ req, resp, body }) => {
 	}
 
 	// 1. 查询模型配置
-	const modelRes = await db.query('SELECT * FROM base_ai WHERE id = $1 AND status = 1 LIMIT 1', [modelId])
+	// 模型 + 服务商接入配置 JOIN (url/key/provider 归属服务商表; 服务商被禁用时模型同样不可用)
+	const modelRes = await db.query(
+		`SELECT m.id, m.name, m."providerId", m.model, m."desc", m.search, m.status, m.speed, m.sort, m."isReasoning",
+			p.name AS domain, p.provider AS provider, p.url AS url, p.key AS key
+		 FROM base_ai m JOIN base_ai_provider p ON p.id = m."providerId"
+		 WHERE m.id = $1 AND m.status = 1 AND p.status = 1 LIMIT 1`,
+		[modelId],
+	)
 	if (modelRes.rowCount === 0) {
 		return base.respFailure({ msg: `未找到指定或已启用的模型: ${modelId}` })
 	}
@@ -891,7 +1123,14 @@ actions.post.title = async ({ body }) => {
 
 	try {
 		await ensure_dbInitialized_async()
-		const modelRes = await db.query('SELECT * FROM base_ai WHERE id = $1 AND status = 1 LIMIT 1', [modelId])
+		// 模型 + 服务商接入配置 JOIN (url/key/provider 归属服务商表; 服务商被禁用时模型同样不可用)
+		const modelRes = await db.query(
+			`SELECT m.id, m.name, m."providerId", m.model, m."desc", m.search, m.status, m.speed, m.sort, m."isReasoning",
+			p.name AS domain, p.provider AS provider, p.url AS url, p.key AS key
+		 FROM base_ai m JOIN base_ai_provider p ON p.id = m."providerId"
+		 WHERE m.id = $1 AND m.status = 1 AND p.status = 1 LIMIT 1`,
+			[modelId],
+		)
 		const modelConfig = modelRes.rows[0]
 		if (!modelConfig) return base.respFailure({ msg: '模型不存在或已停用' })
 

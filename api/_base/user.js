@@ -15,7 +15,11 @@ async function ensure_avatarColumn() {
 	if (avatarColumnChecked) return
 	try {
 		await db.query('ALTER TABLE base_user ADD COLUMN IF NOT EXISTS avatar TEXT')
-		await db.query(`UPDATE base_user SET avatar = REPLACE(avatar, 'https://drive.zengjin.work/avatar/', 'https://file.zengjin.work/avatar/') WHERE avatar LIKE 'https://drive.zengjin.work/avatar/%'`).catch(() => {})
+		await db
+			.query(
+				`UPDATE base_user SET avatar = REPLACE(avatar, 'https://drive.zengjin.work/avatar/', 'https://file.zengjin.work/avatar/') WHERE avatar LIKE 'https://drive.zengjin.work/avatar/%'`,
+			)
+			.catch(() => {})
 		avatarColumnChecked = true
 	} catch (err) {
 		console.error('[DB] 自动检查/增加 avatar 字段:', err.message)
@@ -48,19 +52,17 @@ const actions = {
 			let users = []
 			let error = null
 			try {
-				const result = await db.query(
-					'SELECT id, username, phone, nickname, avatar, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1',
-					[userId],
-				)
+				const result = await db.query('SELECT id, username, phone, nickname, avatar, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1', [
+					userId,
+				])
 				users = result.rows
 			} catch (err) {
 				console.error('[User me error]:', err)
 				// 兜底降级查询（防范某些旧库未包含 avatar）
 				try {
-					const fallbackRes = await db.query(
-						'SELECT id, username, phone, nickname, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1',
-						[userId],
-					)
+					const fallbackRes = await db.query('SELECT id, username, phone, nickname, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1', [
+						userId,
+					])
 					users = fallbackRes.rows
 				} catch (fallbackErr) {
 					error = fallbackErr
@@ -361,13 +363,7 @@ const actions = {
 				?.split('=')[1]
 
 			const isProd = process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production'
-			const clearCookie = [
-				'refreshToken=',
-				'HttpOnly',
-				'Path=/',
-				'Max-Age=0',
-				isProd ? 'SameSite=None; Secure' : 'SameSite=Lax',
-			].join('; ')
+			const clearCookie = ['refreshToken=', 'HttpOnly', 'Path=/', 'Max-Age=0', isProd ? 'SameSite=None; Secure' : 'SameSite=Lax'].join('; ')
 
 			if (!refreshToken) {
 				resp.setHeader('Set-Cookie', clearCookie)
@@ -554,10 +550,9 @@ const actions = {
 				await db.query(sql, binds)
 
 				// 查询更新后的最新信息
-				const updated = await db.query(
-					'SELECT id, username, phone, nickname, avatar, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1',
-					[userId],
-				)
+				const updated = await db.query('SELECT id, username, phone, nickname, avatar, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1', [
+					userId,
+				])
 				return base.respSuccess({
 					msg: '资料更新成功',
 					data: base.formatDbRows(updated.rows)[0],
@@ -600,10 +595,9 @@ const actions = {
 				await db.query('UPDATE base_user SET phone = $1, "updateTime" = NOW() WHERE id = $2', [phone, userId])
 
 				await ensure_avatarColumn()
-				const updated = await db.query(
-					'SELECT id, username, phone, nickname, avatar, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1',
-					[userId],
-				)
+				const updated = await db.query('SELECT id, username, phone, nickname, avatar, "status", "createTime" FROM base_user WHERE id = $1 LIMIT 1', [
+					userId,
+				])
 				return base.respSuccess({
 					msg: '手机号换绑成功',
 					data: base.formatDbRows(updated.rows)[0],
@@ -821,11 +815,7 @@ const actions = {
 
 			// 核验成功，生成短效防篡改注册凭据 smsToken (15分钟有效)
 			const secret = process.env.JWT_SECRET
-			const smsToken = jwt.sign(
-				{ phone, type: 'sms_register', timestamp: Date.now() },
-				secret,
-				{ expiresIn: '15m' },
-			)
+			const smsToken = jwt.sign({ phone, type: 'sms_register', timestamp: Date.now() }, secret, { expiresIn: '15m' })
 
 			return base.respSuccess({
 				msg: '验证码核验成功',
@@ -883,10 +873,15 @@ const actions = {
 				const encryptedPassword = encryptPassword(password)
 
 				// 写入用户表：nickname 默认留空，由渲染层通过 nickname || username 兜底展示
-				await db.query(
-					'INSERT INTO base_user (id, username, password, nickname, phone, "status", "createTime") VALUES ($1, $2, $3, $4, $5, $6, $7)',
-					[id, username, encryptedPassword, '', phone, 1, createTime],
-				)
+				await db.query('INSERT INTO base_user (id, username, password, nickname, phone, "status", "createTime") VALUES ($1, $2, $3, $4, $5, $6, $7)', [
+					id,
+					username,
+					encryptedPassword,
+					'',
+					phone,
+					1,
+					createTime,
+				])
 
 				// 注册成功，直接颁发 Token 自动登录
 				const accessToken = generateAccessToken({ userId: id, username })

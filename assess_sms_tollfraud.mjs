@@ -44,29 +44,24 @@ const { access_token } = await cert.getAccessToken()
 // 服务端 recaptchaConfig 下发的 WEB key(与前端一致)
 const siteKey = '6Le9HIAtAAAAAMUEOvjS9eVYXGDo3pt7DebvQ0QN'
 
-const resp = await fetch(
-	`https://recaptchaenterprise.googleapis.com/v1/projects/${projectId}/assessments`,
-	{
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${access_token}`,
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({
-			event: {
-				token,
-				siteKey,
-				expectedAction: 'sendVerificationCode',
-				userInfo: {
-					accountId: phoneNumber,
-					userIds: [
-						{ phoneNumber },
-					],
-				},
+const resp = await fetch(`https://recaptchaenterprise.googleapis.com/v1/projects/${projectId}/assessments`, {
+	method: 'POST',
+	headers: {
+		Authorization: `Bearer ${access_token}`,
+		'Content-Type': 'application/json',
+	},
+	body: JSON.stringify({
+		event: {
+			token,
+			siteKey,
+			expectedAction: 'sendVerificationCode',
+			userInfo: {
+				accountId: phoneNumber,
+				userIds: [{ phoneNumber }],
 			},
-		}),
-	}
-)
+		},
+	}),
+})
 
 const data = await resp.json()
 console.log('HTTP', resp.status)

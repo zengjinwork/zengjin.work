@@ -39,23 +39,20 @@ const { access_token } = await cert.getAccessToken()
 // recaptchaConfig 下发的 site key（与前端一致）
 const siteKey = process.env.FIREBASE_RECAPTCHA_SITE_KEY || '6Le9HIAtAAAAAMUEOvjS9eVYXGDo3pt7DebvQ0QN'
 
-const resp = await fetch(
-	`https://recaptchaenterprise.googleapis.com/v1/projects/${projectId}/assessments`,
-	{
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${access_token}`,
-			'Content-Type': 'application/json',
+const resp = await fetch(`https://recaptchaenterprise.googleapis.com/v1/projects/${projectId}/assessments`, {
+	method: 'POST',
+	headers: {
+		Authorization: `Bearer ${access_token}`,
+		'Content-Type': 'application/json',
+	},
+	body: JSON.stringify({
+		event: {
+			token,
+			siteKey,
+			expectedAction: 'sendVerificationCode',
 		},
-		body: JSON.stringify({
-			event: {
-				token,
-				siteKey,
-				expectedAction: 'sendVerificationCode',
-			},
-		}),
-	}
-)
+	}),
+})
 
 const data = await resp.json()
 console.log('HTTP', resp.status)

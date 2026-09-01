@@ -48,16 +48,13 @@ if (mode === 'audit') {
 	updateMask = 'recaptchaConfig.tollFraudManagedRules'
 }
 
-const resp = await fetch(
-	`https://identitytoolkit.googleapis.com/admin/v2/projects/${projectId}/config?updateMask=${updateMask}`,
-	{
-		method: 'PATCH',
-		headers: {
-			Authorization: `Bearer ${access_token}`,
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(body),
-	}
-)
+const resp = await fetch(`https://identitytoolkit.googleapis.com/admin/v2/projects/${projectId}/config?updateMask=${updateMask}`, {
+	method: 'PATCH',
+	headers: {
+		Authorization: `Bearer ${access_token}`,
+		'Content-Type': 'application/json',
+	},
+	body: JSON.stringify(body),
+})
 console.log('HTTP', resp.status)
 console.log(await resp.text())

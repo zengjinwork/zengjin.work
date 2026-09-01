@@ -58,7 +58,7 @@ export function getPool(name) {
 		const pool = new Pool(config)
 
 		// 监听连接池异常（避免空闲连接被服务端断开时触发未捕获异常）
-		pool.on('error', (err) => {
+		pool.on('error', err => {
 			console.warn(`[DB Pool ${key}] 空闲连接已自动回收:`, err.message)
 		})
 

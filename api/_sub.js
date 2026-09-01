@@ -151,103 +151,126 @@ actions.get.select = async options => {
 			list = list.filter(item => item.status === status)
 		}
 
-			// 排序规则辅助函数：提取中英文拼音首字母排序键，支持 A-Z 统一混排
-			const getSortKey = str => {
-				if (!str) return ''
-				const s = String(str).trim()
-				const ch = s[0]
-				if (/[a-zA-Z]/.test(ch)) return ch.toUpperCase() + s.slice(1)
-				if (/[0-9]/.test(ch)) return ' ' + ch + s.slice(1)
+		// 排序规则辅助函数：提取中英文拼音首字母排序键，支持 A-Z 统一混排
+		const getSortKey = str => {
+			if (!str) return ''
+			const s = String(str).trim()
+			const ch = s[0]
+			if (/[a-zA-Z]/.test(ch)) return ch.toUpperCase() + s.slice(1)
+			if (/[0-9]/.test(ch)) return ' ' + ch + s.slice(1)
 
-				// 拼音首字母区间边界 (通过 zh-Hans-CN 拼音对照归入 A-Z)
-				const initials = 'ABCDEFGHJKLMNOPQRSTWXYZ'
-				const boundaries = ['芭', '擦', '搭', '蛾', '发', '噶', '哈', '击', '喀', '垃', '妈', '拿', '哦', '啪', '期', '然', '撒', '塌', '挖', '昔', '压', '匝']
-				for (let i = boundaries.length - 1; i >= 0; i--) {
-					if (ch.localeCompare(boundaries[i], 'zh-Hans-CN') >= 0) {
-						return initials[i + 1] + s
-					}
+			// 拼音首字母区间边界 (通过 zh-Hans-CN 拼音对照归入 A-Z)
+			const initials = 'ABCDEFGHJKLMNOPQRSTWXYZ'
+			const boundaries = [
+				'芭',
+				'擦',
+				'搭',
+				'蛾',
+				'发',
+				'噶',
+				'哈',
+				'击',
+				'喀',
+				'垃',
+				'妈',
+				'拿',
+				'哦',
+				'啪',
+				'期',
+				'然',
+				'撒',
+				'塌',
+				'挖',
+				'昔',
+				'压',
+				'匝',
+			]
+			for (let i = boundaries.length - 1; i >= 0; i--) {
+				if (ch.localeCompare(boundaries[i], 'zh-Hans-CN') >= 0) {
+					return initials[i + 1] + s
 				}
-				return 'A' + s
 			}
+			return 'A' + s
+		}
 
-			// 排序规则：每种排序项内嵌其最自然的业务方向
-			const statusPriority = { expired: 4, warn: 3, remind: 2, normal: 1 }
-			list.sort((a, b) => {
-				if (orderBy === 'progress') {
-					// 1. 按使用进度: 进度轴越满越靠前 (降序)，进度相同按剩余天数少的在前
-					const diff = b.progress - a.progress
-					return diff !== 0 ? diff : a.leftDays - b.leftDays
-				} else if (orderBy === 'end_time' || orderBy === 'left_days') {
-					// 2. 按剩余天数/到期日期: 越早到期/剩余天数越少越靠前 (升序)
-					return a.leftDays - b.leftDays
-				} else if (orderBy === 'price') {
-					// 3. 按订阅费用: 费用越贵越靠前 (降序)
-					return Number(b.price) - Number(a.price)
-				} else if (orderBy === 'name') {
-					// 4. 按服务名称: 中英文拼音首字母统一混排 A-Z (升序)
-					return getSortKey(a.name).localeCompare(getSortKey(b.name), 'zh-Hans-CN', { numeric: true })
-				} else if (orderBy === 'emergency') {
-					const priA = statusPriority[a.status] || 0
-					const priB = statusPriority[b.status] || 0
-					if (priA !== priB) {
-						return priB - priA
-					}
-					return a.leftDays - b.leftDays
+		// 排序规则：每种排序项内嵌其最自然的业务方向
+		const statusPriority = { expired: 4, warn: 3, remind: 2, normal: 1 }
+		list.sort((a, b) => {
+			if (orderBy === 'progress') {
+				// 1. 按使用进度: 进度轴越满越靠前 (降序)，进度相同按剩余天数少的在前
+				const diff = b.progress - a.progress
+				return diff !== 0 ? diff : a.leftDays - b.leftDays
+			} else if (orderBy === 'end_time' || orderBy === 'left_days') {
+				// 2. 按剩余天数/到期日期: 越早到期/剩余天数越少越靠前 (升序)
+				return a.leftDays - b.leftDays
+			} else if (orderBy === 'price') {
+				// 3. 按订阅费用: 费用越贵越靠前 (降序)
+				return Number(b.price) - Number(a.price)
+			} else if (orderBy === 'name') {
+				// 4. 按服务名称: 中英文拼音首字母统一混排 A-Z (升序)
+				return getSortKey(a.name).localeCompare(getSortKey(b.name), 'zh-Hans-CN', { numeric: true })
+			} else if (orderBy === 'emergency') {
+				const priA = statusPriority[a.status] || 0
+				const priB = statusPriority[b.status] || 0
+				if (priA !== priB) {
+					return priB - priA
 				}
-				return 0
-			})
-
-			// 计算年化订阅费用与统计概况 (各项订阅折算成年度费用整体相加)
-			const stats = {
-				totalAnnualCost: 0,
-				totalMonthlyCost: 0,
-				byCurrency: {},
-				totalCount: rows.length,
-				activeCount: 0,
-				remindCount: 0,
-				warnCount: 0,
-				expiredCount: 0,
+				return a.leftDays - b.leftDays
 			}
+			return 0
+		})
 
-			rows.forEach(item => {
-				const price = Number(item.price) || 0
-				const val = Number(item.period_value) || 1
-				const type = item.period_type
-				const cur = item.currency || 'CNY'
+		// 计算年化订阅费用与统计概况 (各项订阅折算成年度费用整体相加)
+		const stats = {
+			totalAnnualCost: 0,
+			totalMonthlyCost: 0,
+			byCurrency: {},
+			totalCount: rows.length,
+			activeCount: 0,
+			remindCount: 0,
+			warnCount: 0,
+			expiredCount: 0,
+		}
 
-				const statusItem = list.find(l => l.id === item.id)
-				const itemStatus = statusItem ? statusItem.status : 'normal'
-				if (itemStatus === 'expired') stats.expiredCount++
-				else if (itemStatus === 'warn') stats.warnCount++
-				else if (itemStatus === 'remind') stats.remindCount++
-				else stats.activeCount++
+		rows.forEach(item => {
+			const price = Number(item.price) || 0
+			const val = Number(item.period_value) || 1
+			const type = item.period_type
+			const cur = item.currency || 'CNY'
 
-				if (price > 0) {
-					let annual = 0
-					if (type === 'day') annual = (price * 365) / val
-					else if (type === 'week') annual = (price * 52) / val
-					else if (type === 'month') annual = (price * 12) / val
-					else if (type === 'quarter') annual = (price * 4) / val
-					else if (type === 'year') annual = price / val
-					else if (type === 'custom') {
-						const start = dayjs(item.start_time)
-						const end = dayjs(item.end_time)
-						const days = Math.abs(end.diff(start, 'day')) || 1
-						annual = (price * 365) / days
-					}
-					stats.byCurrency[cur] = (stats.byCurrency[cur] || 0) + annual
+			const statusItem = list.find(l => l.id === item.id)
+			const itemStatus = statusItem ? statusItem.status : 'normal'
+			if (itemStatus === 'expired') stats.expiredCount++
+			else if (itemStatus === 'warn') stats.warnCount++
+			else if (itemStatus === 'remind') stats.remindCount++
+			else stats.activeCount++
+
+			if (price > 0) {
+				let annual = 0
+				if (type === 'day') annual = (price * 365) / val
+				else if (type === 'week') annual = (price * 52) / val
+				else if (type === 'month') annual = (price * 12) / val
+				else if (type === 'quarter') annual = (price * 4) / val
+				else if (type === 'year') annual = price / val
+				else if (type === 'custom') {
+					const start = dayjs(item.start_time)
+					const end = dayjs(item.end_time)
+					const days = Math.abs(end.diff(start, 'day')) || 1
+					annual = (price * 365) / days
 				}
-			})
+				stats.byCurrency[cur] = (stats.byCurrency[cur] || 0) + annual
+			}
+		})
 
-			stats.totalAnnualCost = stats.byCurrency['CNY'] || Object.values(stats.byCurrency)[0] || 0
-			stats.totalMonthlyCost = stats.totalAnnualCost / 12
+		stats.totalAnnualCost = stats.byCurrency['CNY'] || Object.values(stats.byCurrency)[0] || 0
+		stats.totalMonthlyCost = stats.totalAnnualCost / 12
 		const total = list.length
 		const offset = (page - 1) * size
 		const pagedData = list.slice(offset, offset + size)
 
 		return base.respSuccess({
 			msg: '查询成功',
-				stats,
+			stats,
 			total,
 			data: pagedData,
 		})

@@ -1,3 +1,4 @@
+import base from './base.js'
 import { verifyAccessToken } from './jwt.js'
 
 /**
@@ -6,14 +7,17 @@ import { verifyAccessToken } from './jwt.js'
  */
 
 /**
- * 要求认证的中间件包装器
- * @param {Function} handler - 实际的处理函数
- * @returns {Function} 包装后的处理函数
+ * 校验认证状态
+ * @param {Object} req
+ * @param {Object} resp
+ * @returns {Promise<boolean>}
  */
 export async function checkAuth(req, resp) {
+	req = req || base.req
+	resp = resp || base.resp
 	try {
 		// 从请求头获取token
-		const authHeader = req.headers.authorization || req.headers.Authorization
+		const authHeader = req?.headers?.authorization || req?.headers?.Authorization
 
 		if (!authHeader) {
 			resp.status(401).json({ code: -1, msg: '未提供认证令牌' })
@@ -59,11 +63,13 @@ export async function checkAuth(req, resp) {
  * @returns {Function} 包装后的处理函数
  */
 export function requireAuth(handler) {
-	return async args => {
-		const { req, resp } = args
+	return async (args = {}) => {
+		const req = args?.req || base.req
+		const resp = args?.resp || base.resp
 		const isAuth = await checkAuth(req, resp)
 		if (isAuth) {
 			return handler(args)
 		}
 	}
 }
+
